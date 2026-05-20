@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /data/data/com.termux/files/home/GITIEWALL && git add . && git diff --cached --quiet || git commit -m \"auto: update\" && git push 2>/dev/null || true",
+            "timeout": 60,
+            "async": true,
+            "statusMessage": "Auto-committing..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /data/data/com.termux/files/home/GITIEWALL && git add . && git diff --cached --quiet || { FILES=$(git diff --cached --name-only | head -5 | tr '\\n' ' ' | sed 's/ *$//'); git commit -m \"auto: $FILES\" && git push; } 2>/dev/null || true",
+            "timeout": 60,
+            "statusMessage": "Auto-committing and pushing changes..."
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git diff *)",
+      "Bash(git status *)"
+    ]
+  }
+}
