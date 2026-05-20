@@ -1,0 +1,21 @@
+# Audio files
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.aiff
+*.ogg
+
+# Archives
+*.zip
+
+# Binaries
+*.exe
+*.dll
+
+# Python
+__pycache__/
+*.pyc
+
+# Conda
+.conda/
