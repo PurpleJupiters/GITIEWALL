@@ -1,0 +1,116 @@
+# SunoMaster v4.0 - PowerShell Launcher
+# All questions are asked here in PowerShell, then passed to Python.
+# No typing issues. No popup problems.
+
+$ProjectDir = "E:\SunoMaster"
+$ScriptPath = "$ProjectDir\scripts\sunomaster.py"
+$PythonExe  = "C:\Dev\envs\sunomaster\python.exe"
+
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  SunoMaster v4.0" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+
+# Create folders
+foreach ($f in @("releases","collection","references","scripts","downloads","backup","shortened","output")) {
+    New-Item -ItemType Directory -Path "$ProjectDir\$f" -Force | Out-Null
+}
+
+if (-not (Test-Path $ScriptPath)) {
+    Write-Host "ERROR: sunomaster.py not found at $ScriptPath" -ForegroundColor Red
+    Read-Host "Press Enter to exit"; exit 1
+}
+if (-not (Test-Path $PythonExe)) {
+    Write-Host "ERROR: Python not found at $PythonExe" -ForegroundColor Red
+    Write-Host "Run the install command first." -ForegroundColor Yellow
+    Read-Host "Press Enter to exit"; exit 1
+}
+
+# ── QUESTION 1: Which computer ────────────────────────────────────────────────
+Write-Host ""
+Write-Host "QUESTION 1 of 5 - Which workstation?" -ForegroundColor Yellow
+Write-Host "  [1]  Lenovo ThinkStation  (E:\)"
+Write-Host "  [2]  HP ZBook             (enter drive letter next)"
+$computer = Read-Host "Enter 1 or 2"
+if ($computer -ne "1" -and $computer -ne "2") { $computer = "1" }
+
+$drive = "E"
+if ($computer -eq "2") {
+    Write-Host ""
+    Write-Host "Enter the drive letter for your HP ZBook storage drive." -ForegroundColor Yellow
+    Write-Host "Example: D   (just the letter, nothing else)"
+    $drive = Read-Host "Drive letter"
+    if (-not $drive) { $drive = "D" }
+}
+
+# ── QUESTION 2: Mode ─────────────────────────────────────────────────────────
+Write-Host ""
+Write-Host "QUESTION 2 of 5 - Processing mode?" -ForegroundColor Yellow
+Write-Host "  [1]  Single song  -  you choose one song folder"
+Write-Host "  [2]  Batch        -  process all songs in releases folder"
+$mode = Read-Host "Enter 1 or 2"
+if ($mode -ne "1" -and $mode -ne "2") { $mode = "1" }
+
+# ── QUESTION 3: Song folder (single mode only) ────────────────────────────────
+$songPath = ""
+if ($mode -eq "1") {
+    Write-Host ""
+    Write-Host "QUESTION 3 of 5 - Song folder path" -ForegroundColor Yellow
+    Write-Host "Paste the full path to the song folder."
+    Write-Host "Song folders are inside: $ProjectDir\releases\"
+    Write-Host "Example: E:\SunoMaster\releases\05 Before the First Word (Agent WALL)"
+    $songPath = Read-Host "Song folder path"
+    $songPath = $songPath.Trim().Trim('"')
+} else {
+    Write-Host ""
+    Write-Host "QUESTION 3 of 5 - Batch mode selected." -ForegroundColor Green
+    Write-Host "All folders inside $ProjectDir\releases\ will be processed."
+}
+
+# ── QUESTION 4: Reference track ───────────────────────────────────────────────
+Write-Host ""
+Write-Host "QUESTION 4 of 5 - Reference track path" -ForegroundColor Yellow
+Write-Host "Paste the full path to your reference WAV file."
+Write-Host "Reference files are in: $ProjectDir\references\"
+Write-Host "Example: E:\SunoMaster\references\Red Dragon XL.wav"
+Write-Host "(Press Enter to skip and use the built-in profile instead)"
+$refPath = Read-Host "Reference track path"
+$refPath = $refPath.Trim().Trim('"')
+
+# ── QUESTION 5: LetsSubmit API key ────────────────────────────────────────────
+Write-Host ""
+Write-Host "QUESTION 5 of 5 - LetsSubmit API key (optional)" -ForegroundColor Yellow
+Write-Host "If you have a LetsSubmit API key, paste it here."
+Write-Host "Press Enter to skip - the website will open in your browser instead."
+$lsKey = Read-Host "LetsSubmit API key"
+$lsKey = $lsKey.Trim()
+
+# ── SUMMARY ───────────────────────────────────────────────────────────────────
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  Starting SunoMaster with these settings:" -ForegroundColor Cyan
+Write-Host "  Computer : $(if ($computer -eq '2') { 'HP ZBook (' + $drive + ':\)' } else { 'Lenovo ThinkStation (E:\)' })"
+Write-Host "  Mode     : $(if ($mode -eq '2') { 'Batch - all songs in releases' } else { 'Single song' })"
+if ($mode -eq "1") {
+Write-Host "  Song     : $songPath" }
+Write-Host "  Reference: $(if ($refPath) { $refPath } else { 'Built-in profile' })"
+Write-Host "  LetsSubmit: $(if ($lsKey) { 'API key provided' } else { 'Manual (browser)' })"
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
+
+# ── RUN PYTHON ────────────────────────────────────────────────────────────────
+$args_list = @(
+    $ScriptPath,
+    "--computer", $computer,
+    "--drive",    $drive,
+    "--mode",     $mode,
+    "--song",     $songPath,
+    "--ref",      $refPath,
+    "--lskey",    $lsKey
+)
+
+& $PythonExe @args_list
+
+Write-Host ""
+Write-Host "Session complete." -ForegroundColor Green
+Read-Host "Press Enter to close"
