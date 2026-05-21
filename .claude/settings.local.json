@@ -1,4 +1,19 @@
 {
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "Set-Location 'E:\\SunoMaster\\scripts'; git add .; $files = git diff --cached --name-only; if ($files) { $msg = 'auto: ' + (($files | Select-Object -First 3) -join ', '); git commit -m $msg; git push }",
+            "shell": "powershell",
+            "statusMessage": "Auto-committing to GitHub...",
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(python \"E:\\\\SunoMaster\\\\scripts\\\\run_sunomaster_v54.py\" --input \"C:\\\\Users\\\\equat\\\\Downloads\\\\Transfinite \\(Agent WALL\\) Master.wav\")",
@@ -21,7 +36,11 @@
       "Bash(git remote *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git config *)",
+      "Bash(git rm *)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }
