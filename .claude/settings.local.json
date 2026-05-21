@@ -31,7 +31,11 @@
       "Bash(pip install *)",
       "PowerShell(claude mcp --help 2>&1)",
       "Skill(schedule)",
-      "Skill(schedule:*)"
+      "Skill(schedule:*)",
+      "WebFetch(domain:docs.netwrix.com)",
+      "WebFetch(domain:www2.strategy.com)",
+      "WebFetch(domain:docs.cyberark.com)",
+      "WebFetch(domain:docs.stackgen.com)"
     ]
   },
   "enabledMcpjsonServers": [
