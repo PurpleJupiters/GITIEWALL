@@ -2,7 +2,7 @@
   "mcpServers": {
     "outlook-email": { ... },
     "telegram": {
-      "command": "npx",
+      "command": "C:\\Program Files\\nodejs\\npx.cmd",
       "args": ["-y", "@iqai/mcp-telegram"],
       "env": {
         "TELEGRAM_BOT_TOKEN": "8547752402:AAEfMiy2TaliNAEZYgidVCIwDPq5hJGjH2g"

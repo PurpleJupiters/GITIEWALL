@@ -38,7 +38,10 @@
       "WebFetch(domain:docs.stackgen.com)",
       "WebFetch(domain:microsoftlearning.github.io)",
       "WebFetch(domain:medium.com)",
-      "WebFetch(domain:digitalmill.net)"
+      "WebFetch(domain:digitalmill.net)",
+      "Bash(where npx *)",
+      "PowerShell(\\(Get-Command npx\\).Source)",
+      "PowerShell(cmd /c \"dir `\"C:\\\\Program Files\\\\nodejs\\\\`\"\")"
     ]
   },
   "enabledMcpjsonServers": [
