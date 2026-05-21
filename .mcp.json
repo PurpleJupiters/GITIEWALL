@@ -3,9 +3,9 @@
     "outlook-email": { ... },
     "telegram": {
       "command": "npx",
-      "args": ["-y", "some-telegram-mcp-package"],
+      "args": ["-y", "@iqai/mcp-telegram"],
       "env": {
-        "TELEGRAM_BOT_TOKEN": "your-bot-token"
+        "TELEGRAM_BOT_TOKEN": "8547752402:AAEfMiy2TaliNAEZYgidVCIwDPq5hJGjH2g"
       }
     }
   }
