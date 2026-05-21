@@ -5,10 +5,11 @@
       "args": ["E:\\SunoMaster\\scripts\\outlook_mcp.py"]
     },
     "telegram": {
-      "command": "E:\\SunoMaster\\scripts\\run_telegram_mcp.cmd",
-      "args": [],
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": ["C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js", "-y", "@iqai/mcp-telegram"],
       "env": {
-        "TELEGRAM_BOT_TOKEN": "8547752402:AAEfMiy2TaliNAEZYgidVCIwDPq5hJGjH2g"
+        "TELEGRAM_BOT_TOKEN": "8547752402:AAEfMiy2TaliNAEZYgidVCIwDPq5hJGjH2g",
+        "PATH": "C:\\Program Files\\nodejs;C:\\Windows\\system32;C:\\Windows"
       }
     }
   }
