@@ -46,6 +46,7 @@
       "PowerShell($logPath = \"$env:APPDATA\\\\Claude\\\\logs\"; if \\(Test-Path $logPath\\) { Get-ChildItem $logPath | Sort-Object LastWriteTime -Descending | Select-Object -First 5 })"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "outlook-email",
     "telegram"
