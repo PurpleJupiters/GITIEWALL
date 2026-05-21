@@ -6,86 +6,72 @@
 #   1. Install Python 3.11+ from https://python.org  (check "Add to PATH")
 #   2. Install Claude Code desktop app from https://claude.ai/download
 #   3. Open Claude Code and log in with your Anthropic account
-#   4. Close Claude Code fully (check Task Manager)
+#   4. Close Claude Code fully (check Task Manager - kill all Claude.exe)
 #   5. Run this script in PowerShell as normal user (not admin)
 # =============================================================================
 
 $PROJECT_DIR = "E:\SunoMaster\scripts"
-$TELEGRAM_BOT_TOKEN = "8547752402:AAEfMiy2TaliNAEZYgidVCIwDPq5hJGjH2g"
-$CLAUDE_EXE = "$env:APPDATA\Claude\claude-code\2.1.142\claude.exe"
 
-function Write-Step($msg) {
-    Write-Host "`n==> $msg" -ForegroundColor Cyan
-}
-
-function Write-OK($msg) {
-    Write-Host "    OK: $msg" -ForegroundColor Green
-}
-
-function Write-Fail($msg) {
-    Write-Host "    FAIL: $msg" -ForegroundColor Red
-    exit 1
-}
+function Write-Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
+function Write-OK($msg)   { Write-Host "    OK: $msg" -ForegroundColor Green }
+function Write-Warn($msg) { Write-Host "    NOTE: $msg" -ForegroundColor Yellow }
+function Write-Fail($msg) { Write-Host "    FAIL: $msg" -ForegroundColor Red; exit 1 }
 
 # -----------------------------------------------------------------------------
-# STEP 1 — Check prerequisites
+# STEP 1 - Check prerequisites
 # -----------------------------------------------------------------------------
 Write-Step "Checking prerequisites..."
 
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     Write-Fail "Python not found. Install from https://python.org and check 'Add to PATH'."
 }
-Write-OK "Python found: $(python --version)"
+Write-OK "Python: $(python --version)"
 
-# Find claude.exe (version number may differ on new machine)
-$CLAUDE_EXE = Get-ChildItem "$env:APPDATA\Claude\claude-code" -Recurse -Filter "claude.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+$CLAUDE_EXE = Get-ChildItem "$env:APPDATA\Claude\claude-code" -Recurse -Filter "claude.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1 -ExpandProperty FullName
 if (-not $CLAUDE_EXE) {
     Write-Fail "Claude Code not found. Install from https://claude.ai/download and log in first."
 }
-Write-OK "Claude Code found: $CLAUDE_EXE"
+Write-OK "Claude Code: $CLAUDE_EXE"
 
 # -----------------------------------------------------------------------------
-# STEP 2 — Create project directory
+# STEP 2 - Create project directories
 # -----------------------------------------------------------------------------
-Write-Step "Creating project directory: $PROJECT_DIR"
+Write-Step "Creating project directories..."
 
 New-Item -ItemType Directory -Force -Path $PROJECT_DIR | Out-Null
 New-Item -ItemType Directory -Force -Path "$PROJECT_DIR\.claude" | Out-Null
-Write-OK "Directories created"
+Write-OK "Directories ready"
 
 # -----------------------------------------------------------------------------
-# STEP 3 — Install Python dependencies
+# STEP 3 - Install Python dependencies
 # -----------------------------------------------------------------------------
 Write-Step "Installing Python packages..."
 
 python -m pip install --upgrade pip --quiet
 python -m pip install mcp --quiet
-Write-OK "mcp package installed"
 
-# Verify
-python -c "import mcp; print('mcp ok')" 2>$null
-if ($LASTEXITCODE -ne 0) {
-    Write-Fail "mcp package failed to import. Try: pip install mcp"
-}
+python -c "import mcp" 2>$null
+if ($LASTEXITCODE -ne 0) { Write-Fail "mcp package failed to import. Try: pip install mcp" }
+Write-OK "mcp package installed and verified"
 
 # -----------------------------------------------------------------------------
-# STEP 4 — Write telegram_mcp.py
+# STEP 4 - Write telegram_mcp.py
 # -----------------------------------------------------------------------------
 Write-Step "Writing telegram_mcp.py..."
 
-@'
+$telegramScript = @'
 #!/usr/bin/env python3
-"""MCP server — sends and reads Telegram messages via Bot API."""
+"""MCP server -- sends and reads Telegram messages via Bot API."""
 
 import asyncio
 import json
 import os
 import ssl
 import urllib.request
-import urllib.parse
 import urllib.error
 
-# Windows often has SSL cert issues — create unverified context
+# Windows often has SSL cert issues -- create unverified context
 _ssl_ctx = ssl.create_default_context()
 _ssl_ctx.check_hostname = False
 _ssl_ctx.verify_mode = ssl.CERT_NONE
@@ -215,22 +201,22 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-'@ | Set-Content "$PROJECT_DIR\telegram_mcp.py" -Encoding utf8
+'@
 
-Write-OK "telegram_mcp.py written"
-
-# Quick sanity check
-python -c "import ast; ast.parse(open('$PROJECT_DIR\telegram_mcp.py').read()); print('syntax ok')"
-Write-OK "telegram_mcp.py syntax OK"
+$noBOM = [System.Text.UTF8Encoding]::new($false)
+[System.IO.File]::WriteAllText("$PROJECT_DIR\telegram_mcp.py", $telegramScript, $noBOM)
+python -c "import ast; ast.parse(open(r'$PROJECT_DIR\telegram_mcp.py').read())"
+if ($LASTEXITCODE -ne 0) { Write-Fail "telegram_mcp.py has a syntax error" }
+Write-OK "telegram_mcp.py written and verified"
 
 # -----------------------------------------------------------------------------
-# STEP 5 — Write outlook_mcp.py
+# STEP 5 - Write outlook_mcp.py
 # -----------------------------------------------------------------------------
 Write-Step "Writing outlook_mcp.py..."
 
-@'
+$outlookScript = @'
 #!/usr/bin/env python3
-"""MCP server — searches Outlook emails via win32com (local desktop Outlook)."""
+"""MCP server -- searches Outlook emails via win32com (local desktop Outlook)."""
 
 import asyncio
 from datetime import datetime, timedelta
@@ -346,7 +332,12 @@ def _search(ns, args: dict) -> list[types.TextContent]:
             return [types.TextContent(type="text", text="No emails matched.")]
         lines = [f"Found {len(results)} email(s):\n"]
         for i, r in enumerate(results, 1):
-            lines.append(f"{i}. {r['subject']}\n   From: {r['sender']} <{r['sender_email']}>\n   Date: {r['received']}\n   {r['preview']}\n")
+            lines.append(
+                f"{i}. {r['subject']}\n"
+                f"   From: {r['sender']} <{r['sender_email']}>\n"
+                f"   Date: {r['received']}\n"
+                f"   {r['preview']}\n"
+            )
         return [types.TextContent(type="text", text="\n".join(lines))]
     except Exception as exc:
         return [types.TextContent(type="text", text=f"Search error: {exc}")]
@@ -369,7 +360,11 @@ def _read(ns, args: dict) -> list[types.TextContent]:
                 if sender_q and sender_q not in s_name and sender_q not in s_email:
                     continue
                 body = (getattr(msg, "Body", "") or "")[:4000]
-                return [types.TextContent(type="text", text=f"Subject: {msg.Subject}\nFrom: {msg.SenderName} <{msg.SenderEmailAddress}>\nDate: {msg.ReceivedTime}\n\n{body}")]
+                return [types.TextContent(type="text", text=(
+                    f"Subject: {msg.Subject}\n"
+                    f"From: {msg.SenderName} <{msg.SenderEmailAddress}>\n"
+                    f"Date: {msg.ReceivedTime}\n\n{body}"
+                ))]
             except Exception:
                 continue
         return [types.TextContent(type="text", text="Email not found.")]
@@ -383,38 +378,44 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-'@ | Set-Content "$PROJECT_DIR\outlook_mcp.py" -Encoding utf8
+'@
 
-Write-OK "outlook_mcp.py written"
+[System.IO.File]::WriteAllText("$PROJECT_DIR\outlook_mcp.py", $outlookScript, $noBOM)
+python -c "import ast; ast.parse(open(r'$PROJECT_DIR\outlook_mcp.py').read())"
+if ($LASTEXITCODE -ne 0) { Write-Fail "outlook_mcp.py has a syntax error" }
+Write-OK "outlook_mcp.py written and verified"
 
 # -----------------------------------------------------------------------------
-# STEP 6 — Write .mcp.json
+# STEP 6 - Write .mcp.json
 # -----------------------------------------------------------------------------
 Write-Step "Writing .mcp.json..."
 
-@"
-{
+# Build JSON with correct single-backslash escaping for Windows paths
+$mcpContent = '{
   "mcpServers": {
     "outlook-email": {
       "command": "python",
-      "args": ["$($PROJECT_DIR.Replace('\','\\'))\\\\outlook_mcp.py"]
+      "args": ["E:\\\\SunoMaster\\\\scripts\\\\outlook_mcp.py"]
     },
     "telegram": {
       "command": "python",
-      "args": ["$($PROJECT_DIR.Replace('\','\\'))\\\\telegram_mcp.py"]
+      "args": ["E:\\\\SunoMaster\\\\scripts\\\\telegram_mcp.py"]
     }
   }
-}
-"@ | Set-Content "$PROJECT_DIR\.mcp.json" -Encoding utf8
+}'
+[System.IO.File]::WriteAllText("$PROJECT_DIR\.mcp.json", $mcpContent, $noBOM)
 
-Write-OK ".mcp.json written"
+# Verify it's valid JSON
+python -c "import json; json.load(open(r'$PROJECT_DIR\.mcp.json'))"
+if ($LASTEXITCODE -ne 0) { Write-Fail ".mcp.json is not valid JSON" }
+Write-OK ".mcp.json written and verified"
 
 # -----------------------------------------------------------------------------
-# STEP 7 — Write .claude/settings.local.json (clean version)
+# STEP 7 - Write .claude/settings.local.json
 # -----------------------------------------------------------------------------
 Write-Step "Writing .claude/settings.local.json..."
 
-@'
+$settingsContent = @'
 {
   "permissions": {
     "allow": [
@@ -445,64 +446,68 @@ Write-Step "Writing .claude/settings.local.json..."
     ]
   }
 }
-'@ | Set-Content "$PROJECT_DIR\.claude\settings.local.json" -Encoding utf8
+'@
+[System.IO.File]::WriteAllText("$PROJECT_DIR\.claude\settings.local.json", $settingsContent, $noBOM)
 
-Write-OK "settings.local.json written"
+python -c "import json; json.load(open(r'$PROJECT_DIR\.claude\settings.local.json'))"
+if ($LASTEXITCODE -ne 0) { Write-Fail "settings.local.json is not valid JSON" }
+Write-OK "settings.local.json written and verified"
 
 # -----------------------------------------------------------------------------
-# STEP 8 — Register telegram at user scope
+# STEP 8 - Register telegram at user scope via Claude CLI
 # -----------------------------------------------------------------------------
 Write-Step "Registering telegram MCP server at user scope..."
 
 $result = & $CLAUDE_EXE mcp add --scope user telegram python "$PROJECT_DIR\telegram_mcp.py" 2>&1
 Write-Host "    $result"
-Write-OK "Telegram registered"
+Write-OK "Telegram registered at user scope"
 
 # -----------------------------------------------------------------------------
-# STEP 9 — Approve both servers for this project in .claude.json
+# STEP 9 - Approve both MCP servers in .claude.json
 # -----------------------------------------------------------------------------
-Write-Step "Approving MCP servers for this project..."
+Write-Step "Approving MCP servers for this project in .claude.json..."
 
-$claudeJson = "$env:USERPROFILE\.claude.json"
-if (Test-Path $claudeJson) {
-    $json = Get-Content $claudeJson -Raw | ConvertFrom-Json
-    $projectKey = $PROJECT_DIR.Replace("/", "\")
+$claudeJsonPath = "$env:USERPROFILE\.claude.json"
+if (Test-Path $claudeJsonPath) {
+    $claudeData = Get-Content $claudeJsonPath -Raw | ConvertFrom-Json
+    $projectKey = "E:\SunoMaster\scripts"
 
-    # Add project entry if missing
-    if (-not $json.projects.$projectKey) {
-        $json.projects | Add-Member -NotePropertyName $projectKey -NotePropertyValue ([PSCustomObject]@{
-            allowedTools = @()
-            mcpContextUris = @()
-            enabledMcpjsonServers = @("outlook-email", "telegram")
-            disabledMcpjsonServers = @()
-            hasTrustDialogAccepted = $true
-        }) -Force
+    # Add or update the project entry
+    if (-not $claudeData.projects.PSObject.Properties[$projectKey]) {
+        $newProject = [PSCustomObject]@{
+            allowedTools              = @()
+            mcpContextUris            = @()
+            enabledMcpjsonServers     = @("outlook-email", "telegram")
+            disabledMcpjsonServers    = @()
+            hasTrustDialogAccepted    = $true
+        }
+        $claudeData.projects | Add-Member -NotePropertyName $projectKey -NotePropertyValue $newProject -Force
     } else {
-        $json.projects.$projectKey.enabledMcpjsonServers = @("outlook-email", "telegram")
-        $json.projects.$projectKey.hasTrustDialogAccepted = $true
+        $claudeData.projects.$projectKey.enabledMcpjsonServers  = @("outlook-email", "telegram")
+        $claudeData.projects.$projectKey.hasTrustDialogAccepted = $true
     }
 
-    $json | ConvertTo-Json -Depth 20 | Set-Content $claudeJson -Encoding utf8
-    Write-OK ".claude.json updated"
+    $claudeData | ConvertTo-Json -Depth 20 | Set-Content $claudeJsonPath -Encoding utf8
+    Write-OK ".claude.json updated - both servers approved"
 } else {
-    Write-Host "    NOTE: .claude.json not found yet — open Claude Code once, close it, then re-run Step 9 manually." -ForegroundColor Yellow
+    Write-Warn ".claude.json not found. Open Claude Code once, close it, then re-run this script."
 }
 
 # -----------------------------------------------------------------------------
 # DONE
 # -----------------------------------------------------------------------------
-Write-Host "`n============================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Green
 Write-Host "  SETUP COMPLETE!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
-Write-Host @"
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor White
+Write-Host "  1. Open Claude Code and navigate to: $PROJECT_DIR" -ForegroundColor White
+Write-Host "  2. Kill ALL Claude.exe processes in Task Manager" -ForegroundColor White
+Write-Host "  3. Reopen Claude Code" -ForegroundColor White
+Write-Host "  4. Telegram + Outlook MCP tools will be ready" -ForegroundColor White
+Write-Host ""
+Write-Host "Your Telegram bot:  @Botforbothclaudecodes_bot" -ForegroundColor Cyan
+Write-Host "Your chat ID:       7887805575" -ForegroundColor Cyan
+Write-Host ""
 
-Next steps:
-  1. Open Claude Code and navigate to: $PROJECT_DIR
-  2. Kill ALL Claude.exe processes in Task Manager
-  3. Reopen Claude Code
-  4. The telegram and outlook-email MCP tools will be ready
-
-Your Telegram bot:  @Botforbothclaudecodes_bot
-Your chat ID:       7887805575
-
-"@ -ForegroundColor White

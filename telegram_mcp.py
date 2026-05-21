@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""MCP server — sends and reads Telegram messages via Bot API."""
+"""MCP server -- sends and reads Telegram messages via Bot API."""
 
 import asyncio
 import json
 import os
 import ssl
 import urllib.request
-import urllib.parse
 import urllib.error
 
-# Windows often has SSL cert issues — create unverified context
+# Windows often has SSL cert issues -- create unverified context
 _ssl_ctx = ssl.create_default_context()
 _ssl_ctx.check_hostname = False
 _ssl_ctx.verify_mode = ssl.CERT_NONE
@@ -45,14 +44,8 @@ async def list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "chat_id": {
-                        "type": "string",
-                        "description": "Chat ID or @username to send the message to",
-                    },
-                    "text": {
-                        "type": "string",
-                        "description": "Message text to send",
-                    },
+                    "chat_id": {"type": "string", "description": "Chat ID or @username"},
+                    "text": {"type": "string", "description": "Message text to send"},
                 },
                 "required": ["chat_id", "text"],
             },
@@ -63,11 +56,7 @@ async def list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "limit": {
-                        "type": "integer",
-                        "description": "Number of recent updates to return (default 10, max 100)",
-                        "default": 10,
-                    },
+                    "limit": {"type": "integer", "description": "Number of updates (default 10, max 100)", "default": 10},
                 },
             },
         ),
@@ -77,10 +66,7 @@ async def list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "chat_id": {
-                        "type": "string",
-                        "description": "Chat ID or @username",
-                    },
+                    "chat_id": {"type": "string", "description": "Chat ID or @username"},
                 },
                 "required": ["chat_id"],
             },
@@ -105,23 +91,18 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
 
 def _send_message(args: dict) -> list[types.TextContent]:
-    chat_id = args["chat_id"]
-    text = args["text"]
-    result = _api("sendMessage", {"chat_id": chat_id, "text": text})
+    result = _api("sendMessage", {"chat_id": args["chat_id"], "text": args["text"]})
     if result.get("ok"):
         msg = result["result"]
-        return [types.TextContent(
-            type="text",
-            text=f"Message sent successfully.\nChat: {msg['chat'].get('title') or msg['chat'].get('username') or chat_id}\nMessage ID: {msg['message_id']}",
-        )]
-    return [types.TextContent(type="text", text=f"Failed: {result.get('description', 'Unknown error')}")]
+        return [types.TextContent(type="text", text=f"Sent. Message ID: {msg['message_id']}")]
+    return [types.TextContent(type="text", text=f"Failed: {result.get('description')}")]
 
 
 def _get_updates(args: dict) -> list[types.TextContent]:
     limit = min(int(args.get("limit", 10)), 100)
     result = _api("getUpdates", {"limit": limit})
     if not result.get("ok"):
-        return [types.TextContent(type="text", text=f"Failed: {result.get('description', 'Unknown error')}")]
+        return [types.TextContent(type="text", text=f"Failed: {result.get('description')}")]
     updates = result["result"]
     if not updates:
         return [types.TextContent(type="text", text="No recent messages.")]
@@ -132,36 +113,28 @@ def _get_updates(args: dict) -> list[types.TextContent]:
             continue
         chat = msg.get("chat", {})
         sender = msg.get("from", {})
-        name = sender.get("first_name", "") + " " + sender.get("last_name", "")
+        name = (sender.get("first_name", "") + " " + sender.get("last_name", "")).strip()
         chat_name = chat.get("title") or chat.get("username") or str(chat.get("id"))
-        lines.append(
-            f"- [{chat_name}] {name.strip() or 'Unknown'}: {msg.get('text', '(no text)')}"
-        )
+        lines.append(f"- [{chat_name}] {name or 'Unknown'}: {msg.get('text', '(no text)')}")
     return [types.TextContent(type="text", text="\n".join(lines))]
 
 
 def _get_chat_info(args: dict) -> list[types.TextContent]:
-    chat_id = args["chat_id"]
-    result = _api("getChat", {"chat_id": chat_id})
+    result = _api("getChat", {"chat_id": args["chat_id"]})
     if not result.get("ok"):
-        return [types.TextContent(type="text", text=f"Failed: {result.get('description', 'Unknown error')}")]
+        return [types.TextContent(type="text", text=f"Failed: {result.get('description')}")]
     chat = result["result"]
-    lines = [
+    return [types.TextContent(type="text", text="\n".join([
         f"Chat ID: {chat.get('id')}",
         f"Type: {chat.get('type')}",
         f"Title: {chat.get('title', 'N/A')}",
         f"Username: @{chat.get('username', 'N/A')}",
-        f"Members: {chat.get('member_count', 'N/A')}",
-    ]
-    return [types.TextContent(type="text", text="\n".join(lines))]
+    ]))]
 
 
 async def main():
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream, write_stream, server.create_initialization_options()
-        )
-
+    async with stdio_server() as (r, w):
+        await server.run(r, w, server.create_initialization_options())
 
 if __name__ == "__main__":
     asyncio.run(main())
