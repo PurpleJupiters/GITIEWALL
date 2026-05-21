@@ -47,7 +47,8 @@
     ]
   },
   "enabledMcpjsonServers": [
-    "outlook-email"
+    "outlook-email",
+    "telegram"
   ],
   "hooks": {
     "Stop": [
