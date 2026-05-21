@@ -41,7 +41,8 @@
       "WebFetch(domain:digitalmill.net)",
       "Bash(where npx *)",
       "PowerShell(\\(Get-Command npx\\).Source)",
-      "PowerShell(cmd /c \"dir `\"C:\\\\Program Files\\\\nodejs\\\\`\"\")"
+      "PowerShell(cmd /c \"dir `\"C:\\\\Program Files\\\\nodejs\\\\`\"\")",
+      "PowerShell($env:TELEGRAM_BOT_TOKEN=\"8547752402:AAEfMiy2TaliNAEZYgidVCIwDPq5hJGjH2g\"; & \"C:\\\\Program Files\\\\nodejs\\\\npx.cmd\" -y @iqai/mcp-telegram 2>&1 | Select-Object -First 30)"
     ]
   },
   "enabledMcpjsonServers": [
