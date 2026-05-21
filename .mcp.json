@@ -1,8 +1,12 @@
 {
   "mcpServers": {
-    "outlook-email": {
-      "command": "python",
-      "args": ["E:\\SunoMaster\\scripts\\outlook_mcp.py"]
+    "outlook-email": { ... },
+    "telegram": {
+      "command": "npx",
+      "args": ["-y", "some-telegram-mcp-package"],
+      "env": {
+        "TELEGRAM_BOT_TOKEN": "your-bot-token"
+      }
     }
   }
 }
