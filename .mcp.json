@@ -7,6 +7,10 @@
     "telegram": {
       "command": "python",
       "args": ["E:\\SunoMaster\\scripts\\telegram_mcp.py"]
+    },
+    "test-mcp": {
+      "command": "python",
+      "args": ["E:\\SunoMaster\\scripts\\test_mcp.py"]
     }
   }
 }
