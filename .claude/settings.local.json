@@ -1,5 +1,4 @@
 {
-  "enabledMcpjsonServers": ["outlook-email"],
   "permissions": {
     "allow": [
       "Bash(python \"E:\\\\SunoMaster\\\\scripts\\\\run_sunomaster_v54.py\" --input \"C:\\\\Users\\\\equat\\\\Downloads\\\\Transfinite \\(Agent WALL\\) Master.wav\")",
@@ -30,9 +29,14 @@
       "mcp__mcp-registry__search_mcp_registry",
       "Bash(pip show *)",
       "Bash(pip install *)",
-      "PowerShell(claude mcp --help 2>&1)"
+      "PowerShell(claude mcp --help 2>&1)",
+      "Skill(schedule)",
+      "Skill(schedule:*)"
     ]
   },
+  "enabledMcpjsonServers": [
+    "outlook-email"
+  ],
   "hooks": {
     "Stop": [
       {
