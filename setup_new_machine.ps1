@@ -50,10 +50,41 @@ Write-Step "Installing Python packages..."
 
 python -m pip install --upgrade pip --quiet
 python -m pip install mcp --quiet
+python -m pip install jupyterlab notebook --quiet
 
 python -c "import mcp" 2>$null
 if ($LASTEXITCODE -ne 0) { Write-Fail "mcp package failed to import. Try: pip install mcp" }
 Write-OK "mcp package installed and verified"
+
+python -c "import jupyter_core" 2>$null
+if ($LASTEXITCODE -ne 0) { Write-Fail "jupyterlab failed to import. Try: pip install jupyterlab" }
+Write-OK "JupyterLab installed and verified"
+
+# -----------------------------------------------------------------------------
+# STEP 3b - Create JupyterLab desktop shortcut
+# -----------------------------------------------------------------------------
+Write-Step "Creating JupyterLab desktop shortcut..."
+
+$desktopPath = [System.Environment]::GetFolderPath("Desktop")
+$shortcutPath = Join-Path $desktopPath "JupyterLab.lnk"
+$jupyterExe = (python -c "import sys, os; print(os.path.join(os.path.dirname(sys.executable), 'Scripts', 'jupyter.exe'))" 2>$null)
+
+if (-not $jupyterExe -or -not (Test-Path $jupyterExe)) {
+    $jupyterExe = (Get-Command jupyter -ErrorAction SilentlyContinue).Source
+}
+
+if ($jupyterExe -and (Test-Path $jupyterExe)) {
+    $wsh = New-Object -ComObject WScript.Shell
+    $sc = $wsh.CreateShortcut($shortcutPath)
+    $sc.TargetPath = $jupyterExe
+    $sc.Arguments = "lab"
+    $sc.WorkingDirectory = $PROJECT_DIR
+    $sc.Description = "Launch JupyterLab in SunoMaster"
+    $sc.Save()
+    Write-OK "JupyterLab desktop shortcut created -> $shortcutPath"
+} else {
+    Write-Host "  [WARN] Could not locate jupyter.exe - shortcut skipped. Run 'jupyter lab' manually." -ForegroundColor Yellow
+}
 
 # -----------------------------------------------------------------------------
 # STEP 4 - Write telegram_mcp.py
