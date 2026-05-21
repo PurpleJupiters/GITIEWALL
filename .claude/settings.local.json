@@ -1,19 +1,5 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "Set-Location 'E:\\SunoMaster\\scripts'; git add .; $files = git diff --cached --name-only; if ($files) { $msg = 'auto: ' + (($files | Select-Object -First 3) -join ', '); git commit -m $msg; git push }",
-            "shell": "powershell",
-            "statusMessage": "Auto-committing to GitHub...",
-            "async": true
-          }
-        ]
-      }
-    ]
-  },
+  "enabledMcpjsonServers": ["outlook-email"],
   "permissions": {
     "allow": [
       "Bash(python \"E:\\\\SunoMaster\\\\scripts\\\\run_sunomaster_v54.py\" --input \"C:\\\\Users\\\\equat\\\\Downloads\\\\Transfinite \\(Agent WALL\\) Master.wav\")",
@@ -40,7 +26,26 @@
       "Bash(git config *)",
       "Bash(git rm *)",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "mcp__mcp-registry__search_mcp_registry",
+      "Bash(pip show *)",
+      "Bash(pip install *)",
+      "PowerShell(claude mcp --help 2>&1)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "Set-Location 'E:\\SunoMaster\\scripts'; git add .; $files = git diff --cached --name-only; if ($files) { $msg = 'auto: ' + (($files | Select-Object -First 3) -join ', '); git commit -m $msg; git push }",
+            "shell": "powershell",
+            "statusMessage": "Auto-committing to GitHub...",
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }

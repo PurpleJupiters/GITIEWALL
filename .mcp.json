@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "outlook-email": {
+      "command": "python",
+      "args": ["E:\\SunoMaster\\scripts\\outlook_mcp.py"]
+    }
+  }
+}
