@@ -4,9 +4,15 @@
 import asyncio
 import json
 import os
+import ssl
 import urllib.request
 import urllib.parse
 import urllib.error
+
+# Windows often has SSL cert issues — create unverified context
+_ssl_ctx = ssl.create_default_context()
+_ssl_ctx.check_hostname = False
+_ssl_ctx.verify_mode = ssl.CERT_NONE
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -26,7 +32,7 @@ def _api(method: str, params: dict = None) -> dict:
         data=data,
         headers={"Content-Type": "application/json"} if data else {},
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10, context=_ssl_ctx) as resp:
         return json.loads(resp.read())
 
 
