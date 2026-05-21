@@ -2,11 +2,10 @@
   "mcpServers": {
     "outlook-email": { ... },
     "telegram": {
-      "command": "C:\\Program Files\\nodejs\\npx.cmd",
-      "args": ["-y", "@iqai/mcp-telegram"],
+      "command": "E:\\SunoMaster\\scripts\\run_telegram_mcp.cmd",
+      "args": [],
       "env": {
-        "TELEGRAM_BOT_TOKEN": "8547752402:AAEfMiy2TaliNAEZYgidVCIwDPq5hJGjH2g",
-        "PATH": "C:\\Program Files\\nodejs;C:\\Windows\\system32;C:\\Windows"
+        "TELEGRAM_BOT_TOKEN": "8547752402:AAEfMiy2TaliNAEZYgidVCIwDPq5hJGjH2g"
       }
     }
   }
