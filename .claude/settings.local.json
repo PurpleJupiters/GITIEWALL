@@ -8,7 +8,8 @@
       "Bash(adb version *)",
       "Bash(Test-Path \"E:\\\\\" 2>&1)",
       "PowerShell(Get-PnpDevice -Class \"WPD\")",
-      "PowerShell(Get-PnpDevice -Class \"WPD\" | Where-Object { $_.Status -eq \"OK\" } | Select-Object FriendlyName, InstanceId | Format-Table -AutoSize)"
+      "PowerShell(Get-PnpDevice -Class \"WPD\" | Where-Object { $_.Status -eq \"OK\" } | Select-Object FriendlyName, InstanceId | Format-Table -AutoSize)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"User\"\\); adb version; Write-Host \"---\"; adb devices)"
     ]
   },
   "enableAllProjectMcpServers": true,
