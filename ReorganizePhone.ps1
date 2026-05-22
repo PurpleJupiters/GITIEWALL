@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # RONALD'S PHONE BACKUP REORGANIZATION SCRIPT
 # Source : E:\Project Backups\HonorPhoneBackup22MAY2026\sdcard
 # Target : E:\Project Backups\HonorPhoneBackup22MAY2026\
@@ -31,11 +31,11 @@ function MoveFiles($sourceDir, $filter, $destDir) {
             Move-Item $f.FullName -Destination $destDir -Force -ErrorAction Stop
             $script:moved++
         } catch {
-            Log "  ERROR: $($f.FullName) — $_"
+            Log "  ERROR: $($f.FullName) -$_"
             $script:errors++
         }
     }
-    if ($files.Count -gt 0) { Log "  Moved $($files.Count) [$filter] → $destDir" }
+    if ($files.Count -gt 0) { Log "  Moved $($files.Count) [$filter] -> $destDir" }
 }
 
 function MoveFolder($sourcePath, $destPath) {
@@ -44,9 +44,9 @@ function MoveFolder($sourcePath, $destPath) {
     try {
         Move-Item $sourcePath -Destination $destPath -Force -ErrorAction Stop
         $script:moved++
-        Log "  Moved folder: $(Split-Path $sourcePath -Leaf) → $destPath"
+        Log "  Moved folder: $(Split-Path $sourcePath -Leaf) ->$destPath"
     } catch {
-        Log "  ERROR moving folder $sourcePath — $_"
+        Log "  ERROR moving folder $sourcePath -$_"
         $script:errors++
     }
 }
@@ -60,24 +60,24 @@ function MoveFolderContents($sourceDir, $destDir) {
             Move-Item $item.FullName -Destination $destDir -Force -ErrorAction Stop
             $script:moved++
         } catch {
-            Log "  ERROR: $($item.FullName) — $_"
+            Log "  ERROR: $($item.FullName) -$_"
             $script:errors++
         }
     }
-    if ($items.Count -gt 0) { Log "  Moved $($items.Count) items from $(Split-Path $sourceDir -Leaf) → $destDir" }
+    if ($items.Count -gt 0) { Log "  Moved $($items.Count) items from $(Split-Path $sourceDir -Leaf) ->$destDir" }
 }
 
-# ── PRE-COUNT ────────────────────────────────────────────────
+# ------ PRE-COUNT ------------------------------------------------------------------------------------------------------------------------------------------------
 $beforeCount = (Get-ChildItem $src -Recurse -File -Force -ErrorAction SilentlyContinue).Count
 $beforeSize  = (Get-ChildItem $src -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
-Log "START — $beforeCount files, $([math]::Round($beforeSize/1GB,2)) GB in source"
+Log "START -$beforeCount files, $([math]::Round($beforeSize/1GB,2)) GB in source"
 
 # ============================================================
 # 1. PHOTOS
 # ============================================================
-Log "`n── PHOTOS ──────────────────────────────────────"
+Log "`n------ PHOTOS ------------------------------------------------------------------------------------------------------------------"
 
-# Camera — sort by year from filename, fallback to file date
+# Camera -sort by year from filename, fallback to file date
 Log "  Sorting camera photos by year..."
 $camSrc = "$src\DCIM\Camera"
 if (Test-Path $camSrc) {
@@ -123,7 +123,7 @@ MoveFolder "$src\Pictures\Underworld Best"    "$dst\Music Projects\Underworld Be
 MoveFolder "$src\Pictures\VERTIGO"            "$dst\Music Projects\VERTIGO\Visuals"
 MoveFolder "$src\Pictures\VISCERAL PERCEPTOR" "$dst\Music Projects\VISCERAL PERCEPTOR\Visuals"
 
-# Muck — social media chat images
+# Muck -social media chat images
 MoveFolder "$src\Pictures\WhatsApp"   "$dst\Muck\WhatsApp"
 MoveFolder "$src\Pictures\Instagram"  "$dst\Muck\Instagram"
 MoveFolder "$src\Pictures\Messenger"  "$dst\Muck\Messenger"
@@ -139,7 +139,7 @@ MoveFolder "$src\Pictures\History-PhotoLayers" "$dst\Ronald's Trash Folder\App T
 MoveFolder "$src\Pictures\hiddenAlbum"        "$dst\Ronald's Trash Folder\App Temp\hiddenAlbum"
 MoveFolder "$src\Pictures\DUB ME GOOD"        "$dst\Music Projects\DUB ME GOOD\Visuals"
 
-# Trash — system cache
+# Trash -system cache
 MoveFolder "$src\Pictures\.Gallery2"    "$dst\Ronald's Trash Folder\System Cache\Gallery2"
 MoveFolder "$src\Pictures\.thumbnails"  "$dst\Ronald's Trash Folder\System Cache\Thumbnails"
 MoveFolder "$src\Pictures\Facebook"     "$dst\Muck\Facebook Photos"
@@ -149,40 +149,40 @@ MoveFolderContents "$src\.photoShare"   "$dst\Photos\Shared"
 MoveFolder         "$src\HONOR Share"   "$dst\Photos\Shared\HONOR Share"
 
 # ============================================================
-# 2. AUDIO — COMPOSITIONS (loose files at sdcard root)
+# 2. AUDIO -COMPOSITIONS (loose files at sdcard root)
 # ============================================================
-Log "`n── AUDIO COMPOSITIONS ──────────────────────────"
+Log "`n------ AUDIO COMPOSITIONS ------------------------------------------------------------------------------"
 
-# MIDI — Fractal Series
+# MIDI -Fractal Series
 foreach ($f in @("Fractal_Composition_MIDI.mid","fractal_composition.mid","Fractal_Enhanced_Piano.mid","Fractal_Evolving_Modes.mid","Fractal_Masterpiece.mid")) {
     if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\MIDI\Fractal Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Fractal Series\" -Force; $script:moved++ }
 }
 Log "  MIDI Fractal Series moved"
 
-# MIDI — Techno Series
+# MIDI -Techno Series
 foreach ($f in @("techno_audionodes_ready.mid","techno_exact_4min.mid","techno_explicit_4min.mid","techno_final_4minutes.mid","techno_final_5minutes.mid","techno_full_4min.mid")) {
     if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\MIDI\Techno Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Techno Series\" -Force; $script:moved++ }
 }
 Log "  MIDI Techno Series moved"
 
-# MIDI — Entropy Series
+# MIDI -Entropy Series
 foreach ($f in @("entropy_jazz_5part.mid","entropy_jazz_fixed.mid","grid_entropy_song.mid")) {
     if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\MIDI\Entropy Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Entropy Series\" -Force; $script:moved++ }
 }
 Log "  MIDI Entropy Series moved"
 
-# MIDI — Underworld Series
+# MIDI -Underworld Series
 foreach ($f in @("underworld_phrygian_techno.mid")) {
     if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\MIDI\Underworld Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Underworld Series\" -Force; $script:moved++ }
 }
 
-# WAV — Underworld Series
+# WAV -Underworld Series
 foreach ($f in @("underworld_final_song.wav","underworld_force_spyder_mix.wav","underworld_fractals.wav","underworld_fractals_extended.wav","complex_underworld_song.wav")) {
     if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\WAV\Underworld Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\WAV\Underworld Series\" -Force; $script:moved++ }
 }
 Log "  WAV Underworld Series moved"
 
-# WAV — Other
+# WAV -Other
 foreach ($f in @("my_childrens_smile_reimagined.wav")) {
     if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\WAV\Other"; Move-Item "$src\$f" "$dst\Audio\Compositions\WAV\Other\" -Force; $script:moved++ }
 }
@@ -226,10 +226,10 @@ MoveFiles "$src\Ronald Pyroid" "*.py"  "$dst\Code\Python"
 # ============================================================
 # 3. VIDEO
 # ============================================================
-Log "`n── VIDEO ────────────────────────────────────────"
+Log "`n------ VIDEO ------------------------------------------------------------------------------------------------------------------------"
 MoveFolder "$src\Movies" "$dst\Video\Downloaded"
 
-# Camera videos — sort by year
+# Camera videos -sort by year
 $camSrc = "$src\DCIM\Camera"
 if (Test-Path $camSrc) {
     Get-ChildItem $camSrc -Filter "*.mp4" -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
@@ -245,7 +245,7 @@ if (Test-Path $camSrc) {
 # ============================================================
 # 4. DOCUMENTS (from Download folder)
 # ============================================================
-Log "`n── DOCUMENTS ───────────────────────────────────"
+Log "`n------ DOCUMENTS ---------------------------------------------------------------------------------------------------------"
 MoveFiles "$src\Download" "*.docx" "$dst\Documents\Word"
 MoveFiles "$src\Download" "*.doc"  "$dst\Documents\Word"
 MoveFiles "$src\Download" "*.pdf"  "$dst\Documents\PDF"
@@ -264,14 +264,14 @@ if (Test-Path "$src\topics.txt") {
     Log "  topics.txt moved"
 }
 
-# combinations.jsonl → Code/Projects/SunoMaster
+# combinations.jsonl ->Code/Projects/SunoMaster
 if (Test-Path "$src\combinations.jsonl") {
     Dir "$dst\Code\Projects\SunoMaster"
     Move-Item "$src\combinations.jsonl" "$dst\Code\Projects\SunoMaster\" -Force; $script:moved++
-    Log "  combinations.jsonl → Code/Projects/SunoMaster"
+    Log "  combinations.jsonl ->Code/Projects/SunoMaster"
 }
 
-# MyDocuments — dev files
+# MyDocuments -dev files
 MoveFiles "$src\ MyDocuments" "*.cmake" "$dst\Code\Dev Libraries"
 MoveFiles "$src\ MyDocuments" "*.pc"    "$dst\Code\Dev Libraries"
 MoveFiles "$src\ MyDocuments" "*.so"    "$dst\Code\Dev Libraries"
@@ -286,7 +286,7 @@ MoveFiles "$src\ MyDocuments" "*.wav"   "$dst\Audio\Downloaded Audio\WAV"
 # ============================================================
 # 5. AUDIO DOWNLOADS (from Download folder)
 # ============================================================
-Log "`n── AUDIO DOWNLOADS ─────────────────────────────"
+Log "`n------ AUDIO DOWNLOADS ---------------------------------------------------------------------------------------"
 MoveFiles "$src\Download" "*.mp3" "$dst\Audio\Downloaded Audio\MP3"
 MoveFiles "$src\Download" "*.wav" "$dst\Audio\Downloaded Audio\WAV"
 MoveFiles "$src\Download" "*.m4a" "$dst\Audio\Downloaded Audio\M4A"
@@ -296,7 +296,7 @@ MoveFiles "$src\Download" "*.webm" "$dst\Audio\Downloaded Audio\WebM"
 # ============================================================
 # 6. IMAGES FROM DOWNLOAD
 # ============================================================
-Log "`n── IMAGES FROM DOWNLOAD ────────────────────────"
+Log "`n------ IMAGES FROM DOWNLOAD ------------------------------------------------------------------------"
 MoveFiles "$src\Download" "*.jpg"  "$dst\Photos\Downloaded Images"
 MoveFiles "$src\Download" "*.jpeg" "$dst\Photos\Downloaded Images"
 MoveFiles "$src\Download" "*.png"  "$dst\Photos\Downloaded Images"
@@ -310,7 +310,7 @@ MoveFiles "$src\Download" "*.mp4" "$dst\Video\Downloaded"
 # ============================================================
 # 8. CODE
 # ============================================================
-Log "`n── CODE ─────────────────────────────────────────"
+Log "`n------ CODE ---------------------------------------------------------------------------------------------------------------------------"
 MoveFiles "$src\Download" "*.py"  "$dst\Code\Python"
 MoveFolder "$src\Download\wetransfer_source-code-pack_2025-08-29_2355" "$dst\Code\Projects\WeTransfer Source Pack"
 MoveFolder "$src\Ronald Pyroid" "$dst\Code\Projects\Ronald Pyroid"
@@ -318,13 +318,13 @@ MoveFolder "$src\Ronald Pyroid" "$dst\Code\Projects\Ronald Pyroid"
 # ============================================================
 # 9. ARCHIVES (remaining ZIPs from Download)
 # ============================================================
-Log "`n── ARCHIVES ─────────────────────────────────────"
+Log "`n------ ARCHIVES ---------------------------------------------------------------------------------------------------------------"
 MoveFiles "$src\Download" "*.zip" "$dst\Archives"
 
 # ============================================================
 # 10. RONALD'S TRASH FOLDER
 # ============================================================
-Log "`n── RONALD'S TRASH FOLDER ───────────────────────"
+Log "`n------ RONALD'S TRASH FOLDER ---------------------------------------------------------------------"
 
 # Duplicate ZIP bundles
 foreach ($f in @("youtube_sounds_bundle.zip","youtube_webm_audio_bundle.zip","combinationszipped.zip","nasa_sounds_bundle.zip","verified_sounds_bundle.zip","working_sound_effects_bundle.zip","sound_effects_bundle.zip")) {
@@ -356,9 +356,9 @@ foreach ($f in @("Alarms","Ringtones","Podcasts","Audiobooks")) {
 Log "  Empty folders moved"
 
 # ============================================================
-# 11. SYSTEM — DO NOT TOUCH
+# 11. SYSTEM -DO NOT TOUCH
 # ============================================================
-Log "`n── SYSTEM — DO NOT TOUCH ───────────────────────"
+Log "`n------ SYSTEM -DO NOT TOUCH ---------------------------------------------------------------------"
 MoveFolder "$src\Android"       "$dst\System - Do Not Touch\Android"
 MoveFolder "$src\HonorSystem"   "$dst\System - Do Not Touch\HonorSystem"
 MoveFolder "$src\Huawei"        "$dst\System - Do Not Touch\Huawei"
@@ -377,7 +377,7 @@ MoveFolder "$src\pictorial"     "$dst\System - Do Not Touch\pictorial"
 # ============================================================
 # 12. ANYTHING REMAINING IN DOWNLOAD
 # ============================================================
-Log "`n── REMAINING DOWNLOAD FILES ────────────────────"
+Log "`n------ REMAINING DOWNLOAD FILES ------------------------------------------------------------"
 if (Test-Path "$src\Download") {
     $remaining = Get-ChildItem "$src\Download" -File -Force -ErrorAction SilentlyContinue
     if ($remaining.Count -gt 0) {
@@ -386,14 +386,14 @@ if (Test-Path "$src\Download") {
             try { Move-Item $_.FullName -Destination "$dst\Archives\Download Misc\" -Force; $script:moved++ }
             catch { $script:errors++ }
         }
-        Log "  $($remaining.Count) misc Download files → Archives\Download Misc"
+        Log "  $($remaining.Count) misc Download files ->Archives\Download Misc"
     }
 }
 
 # ============================================================
 # 13. REMOVE EMPTY FOLDERS FROM SRC
 # ============================================================
-Log "`n── CLEANUP EMPTY FOLDERS ───────────────────────"
+Log "`n------ CLEANUP EMPTY FOLDERS ---------------------------------------------------------------------"
 Get-ChildItem $src -Recurse -Directory -Force -ErrorAction SilentlyContinue |
     Sort-Object FullName -Descending |
     Where-Object { (Get-ChildItem $_.FullName -Force -ErrorAction SilentlyContinue).Count -eq 0 } |
@@ -408,7 +408,7 @@ Log "  Empty folders removed"
 $afterCount = (Get-ChildItem $dst -Recurse -File -Force -ErrorAction SilentlyContinue).Count
 $afterSize  = (Get-ChildItem $dst -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
 
-Log "`n════════════════════════════════════════════════"
+Log "`n================================================"
 Log "COMPLETE"
 Log "  Items moved   : $moved"
 Log "  Errors        : $errors"
@@ -416,7 +416,7 @@ Log "  Files before  : $beforeCount"
 Log "  Files after   : $afterCount"
 Log "  Size before   : $([math]::Round($beforeSize/1GB,2)) GB"
 Log "  Size after    : $([math]::Round($afterSize/1GB,2)) GB"
-Log "════════════════════════════════════════════════"
+Log "================================================"
 
 # Save log to file
 $logPath = "$dst\REORGANIZATION_LOG.txt"
