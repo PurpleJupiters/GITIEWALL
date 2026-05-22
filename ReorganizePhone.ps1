@@ -16,7 +16,7 @@ function Log($msg) {
     Write-Host $msg
 }
 
-function Dir($path) {
+function EnsureDir($path) {
     if (!(Test-Path $path)) {
         New-Item -ItemType Directory -Force $path | Out-Null
     }
@@ -24,7 +24,7 @@ function Dir($path) {
 
 function MoveFiles($sourceDir, $filter, $destDir) {
     if (!(Test-Path $sourceDir)) { return }
-    Dir $destDir
+    EnsureDir $destDir
     $files = Get-ChildItem $sourceDir -Filter $filter -File -Force -ErrorAction SilentlyContinue
     foreach ($f in $files) {
         try {
@@ -40,7 +40,7 @@ function MoveFiles($sourceDir, $filter, $destDir) {
 
 function MoveFolder($sourcePath, $destPath) {
     if (!(Test-Path $sourcePath)) { return }
-    Dir (Split-Path $destPath -Parent)
+    EnsureDir (Split-Path $destPath -Parent)
     try {
         Move-Item $sourcePath -Destination $destPath -Force -ErrorAction Stop
         $script:moved++
@@ -53,7 +53,7 @@ function MoveFolder($sourcePath, $destPath) {
 
 function MoveFolderContents($sourceDir, $destDir) {
     if (!(Test-Path $sourceDir)) { return }
-    Dir $destDir
+    EnsureDir $destDir
     $items = Get-ChildItem $sourceDir -Force -ErrorAction SilentlyContinue
     foreach ($item in $items) {
         try {
@@ -89,7 +89,7 @@ if (Test-Path $camSrc) {
         elseif ($_.Name -match '^water') { $year = "Watermarked" }
         else { $year = $_.LastWriteTime.Year.ToString() }
         $yearDir = "$dst\Photos\Camera\$year"
-        Dir $yearDir
+        EnsureDir $yearDir
         try { Move-Item $_.FullName -Destination $yearDir -Force -ErrorAction Stop; $script:moved++ }
         catch { Log "  ERROR: $($_.FullName)"; $script:errors++ }
     }
@@ -155,36 +155,36 @@ Log "`n------ AUDIO COMPOSITIONS -----------------------------------------------
 
 # MIDI -Fractal Series
 foreach ($f in @("Fractal_Composition_MIDI.mid","fractal_composition.mid","Fractal_Enhanced_Piano.mid","Fractal_Evolving_Modes.mid","Fractal_Masterpiece.mid")) {
-    if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\MIDI\Fractal Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Fractal Series\" -Force; $script:moved++ }
+    if (Test-Path "$src\$f") { EnsureDir "$dst\Audio\Compositions\MIDI\Fractal Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Fractal Series\" -Force; $script:moved++ }
 }
 Log "  MIDI Fractal Series moved"
 
 # MIDI -Techno Series
 foreach ($f in @("techno_audionodes_ready.mid","techno_exact_4min.mid","techno_explicit_4min.mid","techno_final_4minutes.mid","techno_final_5minutes.mid","techno_full_4min.mid")) {
-    if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\MIDI\Techno Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Techno Series\" -Force; $script:moved++ }
+    if (Test-Path "$src\$f") { EnsureDir "$dst\Audio\Compositions\MIDI\Techno Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Techno Series\" -Force; $script:moved++ }
 }
 Log "  MIDI Techno Series moved"
 
 # MIDI -Entropy Series
 foreach ($f in @("entropy_jazz_5part.mid","entropy_jazz_fixed.mid","grid_entropy_song.mid")) {
-    if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\MIDI\Entropy Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Entropy Series\" -Force; $script:moved++ }
+    if (Test-Path "$src\$f") { EnsureDir "$dst\Audio\Compositions\MIDI\Entropy Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Entropy Series\" -Force; $script:moved++ }
 }
 Log "  MIDI Entropy Series moved"
 
 # MIDI -Underworld Series
 foreach ($f in @("underworld_phrygian_techno.mid")) {
-    if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\MIDI\Underworld Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Underworld Series\" -Force; $script:moved++ }
+    if (Test-Path "$src\$f") { EnsureDir "$dst\Audio\Compositions\MIDI\Underworld Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\MIDI\Underworld Series\" -Force; $script:moved++ }
 }
 
 # WAV -Underworld Series
 foreach ($f in @("underworld_final_song.wav","underworld_force_spyder_mix.wav","underworld_fractals.wav","underworld_fractals_extended.wav","complex_underworld_song.wav")) {
-    if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\WAV\Underworld Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\WAV\Underworld Series\" -Force; $script:moved++ }
+    if (Test-Path "$src\$f") { EnsureDir "$dst\Audio\Compositions\WAV\Underworld Series"; Move-Item "$src\$f" "$dst\Audio\Compositions\WAV\Underworld Series\" -Force; $script:moved++ }
 }
 Log "  WAV Underworld Series moved"
 
 # WAV -Other
 foreach ($f in @("my_childrens_smile_reimagined.wav")) {
-    if (Test-Path "$src\$f") { Dir "$dst\Audio\Compositions\WAV\Other"; Move-Item "$src\$f" "$dst\Audio\Compositions\WAV\Other\" -Force; $script:moved++ }
+    if (Test-Path "$src\$f") { EnsureDir "$dst\Audio\Compositions\WAV\Other"; Move-Item "$src\$f" "$dst\Audio\Compositions\WAV\Other\" -Force; $script:moved++ }
 }
 
 # VoiceToMidi folder
@@ -235,7 +235,7 @@ if (Test-Path $camSrc) {
     Get-ChildItem $camSrc -Filter "*.mp4" -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
         $year = $_.LastWriteTime.Year.ToString()
         $yearDir = "$dst\Video\Camera\$year"
-        Dir $yearDir
+        EnsureDir $yearDir
         try { Move-Item $_.FullName -Destination $yearDir -Force -ErrorAction Stop; $script:moved++ }
         catch { $script:errors++ }
     }
@@ -259,14 +259,14 @@ MoveFiles "$src\Download" "*.svg"  "$dst\Documents\Web"
 
 # topics.txt from root
 if (Test-Path "$src\topics.txt") {
-    Dir "$dst\Documents\Text"
+    EnsureDir "$dst\Documents\Text"
     Move-Item "$src\topics.txt" "$dst\Documents\Text\" -Force; $script:moved++
     Log "  topics.txt moved"
 }
 
 # combinations.jsonl ->Code/Projects/SunoMaster
 if (Test-Path "$src\combinations.jsonl") {
-    Dir "$dst\Code\Projects\SunoMaster"
+    EnsureDir "$dst\Code\Projects\SunoMaster"
     Move-Item "$src\combinations.jsonl" "$dst\Code\Projects\SunoMaster\" -Force; $script:moved++
     Log "  combinations.jsonl ->Code/Projects/SunoMaster"
 }
@@ -329,7 +329,7 @@ Log "`n------ RONALD'S TRASH FOLDER --------------------------------------------
 # Duplicate ZIP bundles
 foreach ($f in @("youtube_sounds_bundle.zip","youtube_webm_audio_bundle.zip","combinationszipped.zip","nasa_sounds_bundle.zip","verified_sounds_bundle.zip","working_sound_effects_bundle.zip","sound_effects_bundle.zip")) {
     if (Test-Path "$src\$f") {
-        Dir "$dst\Ronald's Trash Folder\Duplicate ZIPs"
+        EnsureDir "$dst\Ronald's Trash Folder\Duplicate ZIPs"
         Move-Item "$src\$f" "$dst\Ronald's Trash Folder\Duplicate ZIPs\" -Force; $script:moved++
     }
 }
@@ -349,7 +349,7 @@ MoveFolder "$src\sdcard"         "$dst\Ronald's Trash Folder\App Temp\sdcard sym
 # Empty folders
 foreach ($f in @("Alarms","Ringtones","Podcasts","Audiobooks")) {
     if (Test-Path "$src\$f") {
-        Dir "$dst\Ronald's Trash Folder\Empty Folders"
+        EnsureDir "$dst\Ronald's Trash Folder\Empty Folders"
         Move-Item "$src\$f" "$dst\Ronald's Trash Folder\Empty Folders\" -Force
     }
 }
@@ -381,7 +381,7 @@ Log "`n------ REMAINING DOWNLOAD FILES -----------------------------------------
 if (Test-Path "$src\Download") {
     $remaining = Get-ChildItem "$src\Download" -File -Force -ErrorAction SilentlyContinue
     if ($remaining.Count -gt 0) {
-        Dir "$dst\Archives\Download Misc"
+        EnsureDir "$dst\Archives\Download Misc"
         $remaining | ForEach-Object {
             try { Move-Item $_.FullName -Destination "$dst\Archives\Download Misc\" -Force; $script:moved++ }
             catch { $script:errors++ }
