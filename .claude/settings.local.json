@@ -4,7 +4,10 @@
       "WebSearch",
       "Bash(git *)",
       "Bash(pip *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(adb version *)",
+      "Bash(Test-Path \"E:\\\\\" 2>&1)",
+      "PowerShell(Get-PnpDevice -Class \"WPD\")"
     ]
   },
   "enableAllProjectMcpServers": true,
