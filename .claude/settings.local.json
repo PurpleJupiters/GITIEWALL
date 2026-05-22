@@ -10,7 +10,8 @@
       "PowerShell(Get-PnpDevice -Class \"WPD\")",
       "PowerShell(Get-PnpDevice -Class \"WPD\" | Where-Object { $_.Status -eq \"OK\" } | Select-Object FriendlyName, InstanceId | Format-Table -AutoSize)",
       "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"User\"\\); adb version; Write-Host \"---\"; adb devices)",
-      "PowerShell($count = \\(Get-ChildItem \"E:\\\\HonorPhoneBackup22MAY2026\" -Recurse -File -ErrorAction SilentlyContinue\\).Count; $size = \\(Get-ChildItem \"E:\\\\HonorPhoneBackup22MAY2026\" -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum\\).Sum / 1GB; Write-Host \"Files: $count | Size: $\\([math]::Round\\($size,2\\)\\) GB\")"
+      "PowerShell($count = \\(Get-ChildItem \"E:\\\\HonorPhoneBackup22MAY2026\" -Recurse -File -ErrorAction SilentlyContinue\\).Count; $size = \\(Get-ChildItem \"E:\\\\HonorPhoneBackup22MAY2026\" -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum\\).Sum / 1GB; Write-Host \"Files: $count | Size: $\\([math]::Round\\($size,2\\)\\) GB\")",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"User\"\\); powershell -ExecutionPolicy Bypass -File \"E:\\\\SunoMaster\\\\scripts\\\\ReorganizePhone.ps1\" 2>&1)"
     ]
   },
   "enableAllProjectMcpServers": true,
