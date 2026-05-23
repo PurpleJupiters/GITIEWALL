@@ -18,7 +18,8 @@
       "Bash(xargs grep -l \"telegram\")",
       "WebFetch(domain:support.anthropic.com)",
       "WebFetch(domain:support.claude.com)",
-      "WebFetch(domain:claude.ai)"
+      "WebFetch(domain:claude.ai)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
     ]
   },
   "enableAllProjectMcpServers": true,
