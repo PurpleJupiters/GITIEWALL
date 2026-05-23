@@ -14,7 +14,8 @@
       "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"User\"\\); powershell -ExecutionPolicy Bypass -File \"E:\\\\SunoMaster\\\\scripts\\\\ReorganizePhone.ps1\" 2>&1)",
       "Bash(sleep 8 && cat \"C:\\\\Users\\\\equat\\\\AppData\\\\Local\\\\Temp\\\\cleanup3.output\")",
       "mcp__telegram__send_message",
-      "mcp__telegram__get_updates"
+      "mcp__telegram__get_updates",
+      "Bash(xargs grep -l \"telegram\")"
     ]
   },
   "enableAllProjectMcpServers": true,
