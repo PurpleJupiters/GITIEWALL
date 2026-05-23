@@ -15,7 +15,9 @@
       "Bash(sleep 8 && cat \"C:\\\\Users\\\\equat\\\\AppData\\\\Local\\\\Temp\\\\cleanup3.output\")",
       "mcp__telegram__send_message",
       "mcp__telegram__get_updates",
-      "Bash(xargs grep -l \"telegram\")"
+      "Bash(xargs grep -l \"telegram\")",
+      "WebFetch(domain:support.anthropic.com)",
+      "WebFetch(domain:support.claude.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
