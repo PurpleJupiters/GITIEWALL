@@ -606,16 +606,18 @@ def pipeline_3(mL, mR, ref_profile, target_lufs=None):
         if abs(corrections[band_name]) > 0.3:
             print(f"    [EQ]  {band_name}: {corrections[band_name]:+.1f}dB")
 
-    # Sub weight restoration — low-shelf +2dB at 60Hz.
-    # Lowering drums BUS_TARGET from -8 to -10 dBFS fixed the low-mid mud but
-    # inadvertently reduced the kick's sub hit by ~2-2.5dB. This shelf restores it
-    # without affecting mids. Applied BEFORE reference EQ corrections.
-    sub_shelf_sos = sp.butter(2, 60/(SR/2), btype='low', output='sos')
+    # Sub/kick balance — user tuning: lower sub, raise kick.
+    # Sub shelf (below 45Hz): +0.5dB — gentle sub presence without boom.
+    # Previous +2.0dB @ 60Hz was too heavy and masked the kick punch.
+    sub_shelf_sos = sp.butter(2, 45/(SR/2), btype='low', output='sos')
     sub_shelf_L = sp.sosfiltfilt(sub_shelf_sos, mL.astype(np.float64)).astype(np.float32)
     sub_shelf_R = sp.sosfiltfilt(sub_shelf_sos, mR.astype(np.float64)).astype(np.float32)
-    mL = (mL + sub_shelf_L * np.float32(10**(2.0/20) - 1.0)).astype(np.float32)
-    mR = (mR + sub_shelf_R * np.float32(10**(2.0/20) - 1.0)).astype(np.float32)
-    print(f"    [SUB RESTORE] Low-shelf +2.0dB @ 60Hz applied")
+    mL = (mL + sub_shelf_L * np.float32(10**(0.5/20) - 1.0)).astype(np.float32)
+    mR = (mR + sub_shelf_R * np.float32(10**(0.5/20) - 1.0)).astype(np.float32)
+    print(f"    [SUB RESTORE] Low-shelf +0.5dB @ 45Hz (sub lowered)")
+    # Kick body boost: peak EQ +1.5dB @ 120Hz — raises punch of kick drum.
+    mL = peak_eq(mL, 120, +1.5, Q=1.5); mR = peak_eq(mR, 120, +1.5, Q=1.5)
+    print(f"    [KICK BOOST] +1.5dB peak @ 120Hz (kick raised)")
 
     # Apply corrective EQ by frequency band
     band_eq_map = {
