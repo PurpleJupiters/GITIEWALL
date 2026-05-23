@@ -36,7 +36,7 @@ if (Test-Path $VLC_APK) {
 }
 
 # ── Push Termux backup ───────────────────────────────────────
-Log "Pushing Termux backup to phone (175MB — takes ~15 sec)..."
+Log "Pushing Termux backup to phone (175MB - takes ~15 sec)..."
 adb -s $device push $TERMUX_BACKUP /sdcard/termux_home_backup.tar.gz
 OK "Termux backup pushed to /sdcard/"
 
