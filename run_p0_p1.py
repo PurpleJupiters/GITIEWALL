@@ -1,4 +1,4 @@
-﻿import argparse,gc,subprocess,sys
+import argparse,gc,subprocess,sys
 import numpy as np
 import soundfile as sf
 import librosa
@@ -32,7 +32,8 @@ def p0(L,R,sr,nm):
     if sr!=SR:
         L=librosa.resample(L.astype(np.float64),orig_sr=sr,target_sr=SR).astype(np.float32)
         R=librosa.resample(R.astype(np.float64),orig_sr=sr,target_sr=SR).astype(np.float32)
-    L=lp(L,18000,6);R=lp(R,18000,6);L=hp(L,18,2);R=hp(R,18,2)
+    # [SV-01] LP@18kHz NOT applied per-stem — applied once on final master below
+    L=hp(L,18,2);R=hp(R,18,2)
     pk=max(float(np.max(np.abs(L))),float(np.max(np.abs(R))))
     if pk>10**(-.5/20):sc=np.float32(10**(-.5/20)/pk);L,R=L*sc,R*sc
     return L,R
@@ -44,7 +45,12 @@ def p1(L,R,sn):
     freqs=librosa.fft_frequencies(sr=SR,n_fft=4096)
     lmag=20*np.log10(np.mean(S,axis=1)+1e-9)
     pks,pr=find_peaks(lmag,prominence=9.,width=(1,10))
-    res=sorted([(freqs[i],pr['prominences'][j]) for j,i in enumerate(pks) if 300<freqs[i]<16000],key=lambda x:-x[1])[:8]
+    # [SV-02] Notch only drums stem, only above 8kHz (cymbal shrill only)
+    # Notching 300-16kHz on ALL stems removes musical content, not artefacts
+    if sn=='drums':
+        res=sorted([(freqs[i],pr['prominences'][j]) for j,i in enumerate(pks) if 8000<freqs[i]<16000],key=lambda x:-x[1])[:2]
+    else:
+        res=[]
     del S;gc.collect()
     for fr,pm in res:L=notch(L,fr);R=notch(R,fr);print(f'  notch{fr:.0f}Hz')
     sm=((lp(L,100)+lp(R,100))*.5).astype(np.float32)
@@ -59,7 +65,12 @@ def main():
     sd=out/nm/'stems';d0=out/nm/'P0';d1=out/nm/'P1'
     for d in[sd,d0,d1]:d.mkdir(parents=True,exist_ok=True)
     print(f'\nRunning: {nm}')
-    subprocess.run([sys.executable,'-m','demucs.separate','--name','htdemucs_6s','--out',str(sd),'--int24',str(src)],check=True)
+    try:
+        subprocess.run([sys.executable,'-m','demucs.separate','--name','htdemucs_6s','--out',str(sd),'--int24',str(src)],check=True,timeout=2700)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError('Demucs timed out (45 min). Try a shorter track or GPU.')
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f'Demucs failed (exit {e.returncode}).')
     stem_files=sorted((sd/'htdemucs_6s'/nm).glob('*.wav'))
     print('Stems: '+', '.join(s.stem for s in stem_files))
     proc=[]
@@ -74,6 +85,8 @@ def main():
     mR=sum(R[:N] for _,_,R in proc).astype(np.float32)
     pk=max(float(np.max(np.abs(mL))),float(np.max(np.abs(mR))))
     if pk>0:sc=np.float32(10**(-.5/20)/pk);mL*=sc;mR*=sc
+    # [SV-01] LP@18kHz applied ONCE on final master, not per-stem
+    mL=lp(mL,18000,order=4);mR=lp(mR,18000,order=4)
     mp=out/nm/f'{nm}_master.wav';sf.write(str(mp),np.stack([mL,mR],1),SR,subtype='PCM_24')
     print(f'\nDONE: {mp}')
 if __name__=='__main__':main()

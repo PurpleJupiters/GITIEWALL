@@ -82,7 +82,7 @@ def letssubmit_api(wav_path, api_key):
         print(f"    Uploading to file.io...")
         with open(wav_path, 'rb') as f:
             r = requests.post('https://file.io', files={'file':f},
-                              data={'expires':'1h'}, timeout=120)
+                              data={'expires':'1d'}, timeout=120)
         if r.status_code != 200:
             print(f"    [WARN] file.io upload failed: {r.status_code}")
             return None
@@ -163,7 +163,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lskey",  default="", help="LetsSubmit API key")
     ap.add_argument("--phase",  default="before", help="before or after (labels the report)")
-    ap.add_argument("--no-browser", action="store_true", help="Do not open browser for manual check")
+    ap.add_argument("--browser", action="store_true", help="Open LetsSubmit in browser for manual checking (requires no API key)")
     args = ap.parse_args()
 
     ls_key = args.lskey.strip() or None
@@ -175,7 +175,7 @@ def main():
     if ls_key:
         print(f"  LetsSubmit API: key provided - automated checking enabled")
     else:
-        print(f"  LetsSubmit API: no key - browser will open for manual checking")
+        print(f"  LetsSubmit API: no key - run with --browser to open manually")
     print(f"{'='*70}\n")
 
     songs = find_songs()
@@ -204,7 +204,7 @@ def main():
                     ls_score = letssubmit_api(out_path, ls_key)
                     if ls_score is None:
                         print(f"    LetsSubmit API returned no score.")
-                elif not args.no_browser:
+                elif args.browser:
                     letssubmit_open_browser(out_path)
                     time.sleep(2)
 
@@ -234,7 +234,8 @@ def main():
                 ls_score     = None
                 if ls_key:
                     ls_score = letssubmit_api(out_path, ls_key)
-                elif not args.no_browser:
+                elif args.browser:
+                    letssubmit_open_browser(out_path)
                     time.sleep(1)  # don't spam browser
 
                 print(f"    Internal AI fingerprint: {internal:.1f}%" if internal else "    Internal: N/A")

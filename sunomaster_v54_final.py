@@ -336,14 +336,16 @@ def pipeline_1(L, R, stem_name, is_ghost, mix_rms_db):
             print(f"    [{stem_name}] Notch {fr:.0f}Hz (prominence={pm:.1f}dB, applied={depth_db:.1f}dB)")
 
     # [DM-01 FIX]: Level-preservation check
-    # Only apply gentle level correction — never boost more than MAX_STEM_GAIN dB
+    # P1 processing can inadvertently boost stems. Cap any boost to MAX_STEM_GAIN dB.
+    # rms_change > 0 means P1 boosted the stem; rms_change < 0 means it was reduced.
     current_rms = rms_db(np.concatenate([L, R]))
-    rms_change = current_rms - stem_rms
+    rms_change = current_rms - stem_rms  # positive = boosted by P1
     if rms_change > MAX_STEM_GAIN:
-        # This stem would need to be boosted too much — leave at original level
-        print(f"    [{stem_name}] Level correction capped at {MAX_STEM_GAIN}dB (requested {rms_change:.1f}dB)")
-        L = gain_db_apply(L, min(rms_change, MAX_STEM_GAIN))
-        R = gain_db_apply(R, min(rms_change, MAX_STEM_GAIN))
+        # P1 boosted this stem too much — reduce it back so net boost <= MAX_STEM_GAIN
+        correction = MAX_STEM_GAIN - rms_change  # negative: reduces the overboost
+        print(f"    [{stem_name}] P1 boost capped: {rms_change:.1f}dB -> {MAX_STEM_GAIN}dB (applying {correction:.1f}dB)")
+        L = gain_db_apply(L, correction)
+        R = gain_db_apply(R, correction)
 
     # Sub mono lock
     sub_m = ((lp(L, 100) + lp(R, 100)) * 0.5).astype(np.float32)
@@ -597,7 +599,7 @@ def pipeline_3(mL, mR, ref_profile, target_lufs=None):
         if band_name in _lf_bands:
             raw_corr = float(np.clip(raw_corr, -1.5, 0.5))   # LF: rarely boost, limit to +0.5dB
         elif band_name in _hf_bands:
-            raw_corr = float(np.clip(max(0.0, raw_corr), 0.0, 1.5))  # HF: boost only
+            raw_corr = float(np.clip(raw_corr, -1.5, 1.5))  # HF: bidirectional — can boost OR cut
         else:
             raw_corr = float(np.clip(raw_corr, -2.0, 2.0))
         corrections[band_name] = raw_corr
@@ -1372,9 +1374,10 @@ def main():
     if args.bpm:
         bpm = args.bpm
     else:
-        sos_pre = sp.butter(4, [40, 4000], 'bp', fs=orig_sr, output='sos')
+        # [BPM FIX] Signal already resampled to 48kHz — filter must use fs=SR not orig_sr
+        sos_pre = sp.butter(4, [40, 4000], 'bp', fs=SR, output='sos')
         y_bp    = sp.sosfilt(sos_pre, ((orig_L_48+orig_R_48)*0.5).astype(np.float64)).astype(np.float32)
-        tempo, _ = librosa.beat.beat_track(y=y_bp[:orig_sr*60], sr=SR)
+        tempo, _ = librosa.beat.beat_track(y=y_bp[:SR*60], sr=SR)
         bpm = float(np.atleast_1d(tempo)[0])
         del y_bp; gc.collect()
     print(f"\n[BPM] Detected: {bpm:.1f}")
@@ -1383,7 +1386,12 @@ def main():
     print(f"\n[1] Demucs separation (htdemucs_6s, CPU)...")
     cmd = [sys.executable, '-m', 'demucs.separate',
            '--name', 'htdemucs_6s', '--out', str(stems_dir), '--int24', str(src)]
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True, timeout=2700)  # 45 min max for long tracks on CPU
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Demucs timed out after 45 minutes. Try a shorter track or switch to GPU.")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Demucs failed (exit {e.returncode}). Check Demucs installation.")
     stem_files = sorted((stems_dir / 'htdemucs_6s' / name).glob('*.wav'))
     print(f"    Stems: {[s.stem for s in stem_files]}")
 
@@ -1478,8 +1486,8 @@ def main():
             # Normalise to -1 dBFS
             vpk = max(float(np.max(np.abs(vL))), float(np.max(np.abs(vR))))
             if vpk > 0: sc = np.float32(10**(-1.0/20)/vpk); vL*=sc; vR*=sc
-            # Save to desktop
-            vdesk = Path(r"C:\Users\equat\Desktop\Latest Mastered Songs")
+            # Save to desktop (resolved dynamically — works on any user account)
+            vdesk = Path.home() / "Desktop" / "Latest Mastered Songs"
             vdesk.mkdir(parents=True, exist_ok=True)
             vdest = vdesk / "Transfinite_vocals.wav"
             replaced_v = vdest.exists()
@@ -1493,7 +1501,7 @@ def main():
     # ── DESKTOP DELIVERY ─────────────────────────────────────────────────────────
     # Copy the final master to the desktop folder using the original song filename.
     # Overwrites any older version of the same song automatically.
-    desktop_folder = Path(r"C:\Users\equat\Desktop\Latest Mastered Songs")
+    desktop_folder = Path.home() / "Desktop" / "Latest Mastered Songs"
     try:
         desktop_folder.mkdir(parents=True, exist_ok=True)
         dest = desktop_folder / f"{name}_master_v5.4.wav"

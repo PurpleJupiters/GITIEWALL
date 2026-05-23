@@ -1,4 +1,4 @@
-﻿"""
+"""
 â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
 â•‘           AI ARTIFACT CLEANER  â€”  v6.0  "FINAL"                            â•‘
 â•‘                                                                              â•‘
@@ -38,7 +38,7 @@
 â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 """
 
-import argparse, json, os, time, warnings
+import argparse, hashlib, json, os, time, warnings
 warnings.filterwarnings('ignore')
 
 import numpy as np
@@ -101,7 +101,7 @@ def score_proxy(fp):
 #  STAGE A â€” NOISE FLOOR
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-def stage_noise_floor(audio, sr, level_db):
+def stage_noise_floor(audio, sr, level_db, seed=None):
     """
     Adds low-level broadband noise replicating a quiet recording environment
     (room noise, preamp hiss, tape hiss). Targets MERT's acoustic-environment
@@ -116,7 +116,7 @@ def stage_noise_floor(audio, sr, level_db):
     """
     n, nch = audio.shape
     amp    = 10 ** (level_db / 20.0)
-    rng    = np.random.default_rng(seed=42)   # deterministic for reproducibility
+    rng    = np.random.default_rng(seed=seed)  # file-specific seed from main() for unique noise per file
 
     # Design broadband shelf filters once
     hp_sos = signal.butter(2, 40,                      btype='high', fs=sr, output='sos')
@@ -506,7 +506,9 @@ def main():
     # Stage A â€” Noise floor
     if not a.no_noise:
         print(f"\n  Stage A  Noise floor          [{a.noise_db} dBFS]")
-        proc = stage_noise_floor(proc, sr, a.noise_db)
+        # Derive a file-unique but reproducible seed from the input filename
+        noise_seed = int(hashlib.md5(os.path.basename(a.input).encode()).hexdigest(), 16) % (2**32)
+        proc = stage_noise_floor(proc, sr, a.noise_db, seed=noise_seed)
         stage_log['A_noise_db'] = a.noise_db
     else:
         print(f"\n  Stage A  Noise floor          [SKIPPED]")
