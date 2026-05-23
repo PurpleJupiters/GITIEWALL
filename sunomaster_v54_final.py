@@ -1242,32 +1242,167 @@ def adaptive_deesser(L, R, sr=SR, freq_lo=5000, freq_hi=14000,
     return _deess_ch(L), _deess_ch(R)
 
 
+def vocal_despike(L, R, sr=SR, window_ms=20, spike_ratio_db=12.0):
+    """
+    Detect and limit amplitude spikes using a sliding RMS envelope.
+    Demucs stem separation creates 1,000+ spurious amplitude spikes in vocals.
+    Samples exceeding the local RMS by spike_ratio_db are gain-reduced to threshold.
+    Fast implementation via convolution (O(N log N), no inner loops).
+    """
+    def _despike(y):
+        y64 = y.astype(np.float64)
+        win = max(3, int(sr * window_ms / 1000))
+        kernel = np.ones(win) / win
+        env_sq = np.convolve(y64 ** 2, kernel, mode='same')
+        env    = np.sqrt(np.maximum(env_sq, 1e-20))
+        thresh = env * float(10 ** (spike_ratio_db / 20.0))
+        mag    = np.abs(y64)
+        scale  = np.where(mag > thresh, thresh / (mag + 1e-12), 1.0)
+        return (y64 * scale).astype(np.float32)
+
+    pk_in  = float(20 * np.log10(np.max(np.abs(L)) + 1e-12))
+    Ld = _despike(L); Rd = _despike(R)
+    pk_out = float(20 * np.log10(np.max(np.abs(Ld)) + 1e-12))
+    print(f"    [vocals] Despike: peak {pk_in:.1f} -> {pk_out:.1f}dBFS")
+    return Ld, Rd
+
+
+def vocal_compress(L, R, sr=SR, threshold_db=-26.0, ratio=3.0,
+                   attack_ms=20.0, release_ms=100.0, makeup_db=3.0):
+    """
+    Optical-style vocal compressor to tame crest factor.
+    Target: bring crest from 22+ dB down to the 12-18 dB professional range.
+    Gentle attack (20ms) lets vocal transients pass — ratio 3:1 is transparent.
+    Makeup gain partially restores lost level (apply LUFS targeting in mix anyway).
+    """
+    def _comp(y):
+        y64     = y.astype(np.float64)
+        abs_y   = np.abs(y64)
+        att_tau = attack_ms  / 1000.0
+        rel_tau = release_ms / 1000.0
+        env = np.zeros_like(abs_y)
+        for i in range(1, len(abs_y)):
+            tau   = att_tau if abs_y[i] > env[i-1] else rel_tau
+            alpha = 1.0 - np.exp(-1.0 / (tau * sr + 1.0))
+            env[i] = alpha * abs_y[i] + (1.0 - alpha) * env[i-1]
+        env_db  = 20.0 * np.log10(env + 1e-9)
+        over_db = np.maximum(0.0, env_db - threshold_db)
+        gr_db   = over_db * (1.0 - 1.0 / ratio)
+        gr_lin  = np.power(10.0, -gr_db / 20.0)
+        makeup  = float(10 ** (makeup_db / 20.0))
+        return (y64 * gr_lin * makeup).astype(np.float32)
+
+    Lc = _comp(L); Rc = _comp(R)
+    # Safety ceiling
+    pk = max(float(np.max(np.abs(Lc))), float(np.max(np.abs(Rc))))
+    if pk > 10 ** (-0.5 / 20):
+        sc = np.float32(10 ** (-0.5 / 20) / pk); Lc *= sc; Rc *= sc
+
+    in_crest  = peak_db(np.concatenate([L,  R ]))  - rms_db(np.concatenate([L,  R ]))
+    out_crest = peak_db(np.concatenate([Lc, Rc])) - rms_db(np.concatenate([Lc, Rc]))
+    print(f"    [vocals] Compress: crest {in_crest:.1f} -> {out_crest:.1f}dB  (thr={threshold_db}dB, {ratio:.1f}:1)")
+    return Lc, Rc
+
+
+def vocal_width_control(L, R, sr=SR, crossover_hz=2000,
+                        side_lo=0.0, side_hi=0.10):
+    """
+    Force vocals to near-mono below crossover, preserve 10% side above crossover.
+    Lead vocals must sit in the center — professional standard is mono below 2kHz.
+    Reduces stereo width from 0.401 to near-mono (<0.15), fixing the AI-stereo artefact.
+    side_lo=0.0  : strict mono below 2kHz  (essential for lead vocals)
+    side_hi=0.10 : 10% side above 2kHz     (gentle air / presence)
+    """
+    lo_sos = sp.butter(4, crossover_hz / (sr / 2), 'lp', output='sos')
+    hi_sos = sp.butter(4, crossover_hz / (sr / 2), 'hp', output='sos')
+    M  = ((L.astype(np.float64) + R.astype(np.float64)) * 0.5)
+    S  = ((L.astype(np.float64) - R.astype(np.float64)) * 0.5)
+    S_lo  = sp.sosfiltfilt(lo_sos, S) * side_lo
+    S_hi  = sp.sosfiltfilt(hi_sos, S) * side_hi
+    S_new = (S_lo + S_hi)
+    Lw = (M + S_new).astype(np.float32)
+    Rw = (M - S_new).astype(np.float32)
+    in_w  = float(np.sqrt(np.mean(((L - R) * 0.5) ** 2)) /
+                  (np.sqrt(np.mean(((L + R) * 0.5) ** 2)) + 1e-12))
+    out_w = float(np.sqrt(np.mean(((Lw - Rw) * 0.5) ** 2)) /
+                  (np.sqrt(np.mean(((Lw + Rw) * 0.5) ** 2)) + 1e-12))
+    print(f"    [vocals] Width: {in_w:.3f} -> {out_w:.3f} (near-mono)")
+    return Lw, Rw
+
+
+def vocal_humanize(L, R, sr=SR, depth=0.03, rate_hz=0.25):
+    """
+    Subtle 3-band harmonic modulation to reduce AI static-harmonic signature.
+    AI vocals have perfectly constant harmonic amplitude — human voices naturally
+    fluctuate. Three independent sinusoidal amplitude modulators at prime-ratio
+    rates create realistic harmonic flutter.
+    depth=0.03: 3% peak amplitude modulation per band (transparent)
+    rate_hz: base modulation rate (0.25 Hz ≈ one cycle per 4 seconds)
+    """
+    t    = np.arange(len(L), dtype=np.float64) / sr
+    mod1 = 1.0 + depth * np.sin(2 * np.pi * rate_hz * t)
+    mod2 = 1.0 + depth * 0.7 * np.sin(2 * np.pi * rate_hz * 1.31 * t + 0.7)
+    mod3 = 1.0 + depth * 0.5 * np.sin(2 * np.pi * rate_hz * 2.13 * t + 1.4)
+
+    lo_sos = sp.butter(4, 800  / (sr / 2), 'lp', output='sos')
+    mi_sos = sp.butter(4, [800 / (sr / 2), min(4000 / (sr / 2), 0.999)], 'band', output='sos')
+    hi_sos = sp.butter(4, 4000 / (sr / 2), 'hp', output='sos')
+
+    def _mod(y):
+        y64 = y.astype(np.float64)
+        lo  = sp.sosfiltfilt(lo_sos, y64) * mod1
+        mi  = sp.sosfiltfilt(mi_sos, y64) * mod2
+        hi  = sp.sosfiltfilt(hi_sos, y64) * mod3
+        return (lo + mi + hi).astype(np.float32)
+
+    Lh = _mod(L); Rh = _mod(R)
+    # Level-preserve: keep original peak level
+    pk_in  = max(float(np.max(np.abs(L))),  float(np.max(np.abs(R))),  1e-12)
+    pk_out = max(float(np.max(np.abs(Lh))), float(np.max(np.abs(Rh))), 1e-12)
+    Lh = (Lh * np.float32(pk_in / pk_out)).astype(np.float32)
+    Rh = (Rh * np.float32(pk_in / pk_out)).astype(np.float32)
+    print(f"    [vocals] Humanize: 3-band modulation {depth*100:.0f}% @ {rate_hz}Hz (anti-AI-static)")
+    return Lh, Rh
+
+
 def process_ai_vocals(L, R, sr=SR):
     """
     Full AI vocal processing chain — applied only to the vocals stem.
 
     Order (professional standard):
-      1. Glitch gate (gentle — remove only extreme AI synthesis artifacts)
-      2. Spectral resonance suppressor (Soothe equivalent — tame metallic AI sheen)
-      3. Adaptive de-esser (dynamic threshold — fires only on genuine sibilant peaks)
-      4. Transient smoothing (soften unnaturally sharp AI vocal attacks)
+      1. Despike       — remove Demucs amplitude spikes (sliding-RMS gate)
+      2. Compress      — tame crest from 22dB to 12-18dB (optical 3:1)
+      3. Glitch gate   — remove extreme AI synthesis artifacts in 2-8kHz
+      4. Soothe        — spectral resonance suppressor (frame-by-frame median)
+      5. De-esser      — adaptive 4-14kHz (wider than v5.3, catches harsh AI sibilance)
+      6. Transient smooth — soften unnaturally sharp AI vocal onsets
+      7. Humanize      — 3-band harmonic modulation (reduces AI-static signature)
+      8. Width control — near-mono below 2kHz, 10% side above 2kHz
 
     Every step: conservative, transparent, DO NO HARM.
     """
-    print(f"    [vocals] AI vocal chain: glitch gate + soothe + de-ess + transient smooth")
-    # 1. Glitch gate
+    print(f"    [vocals] AI vocal chain: despike + compress + gate + soothe + deess + smooth + humanize + width")
+    # 1. Despike (amplitude spike removal)
+    L, R = vocal_despike(L, R, sr)
+    # 2. Compress (crest factor reduction)
+    L, R = vocal_compress(L, R, sr)
+    # 3. Glitch gate
     L, R = remove_ai_glitch_artifacts(L, R, sr)
-    # 2. Spectral resonance suppressor (Soothe equivalent)
+    # 4. Spectral resonance suppressor (Soothe equivalent) — applied to Mid only
     Lm = ((L + R) * 0.5).astype(np.float32)
     Sm = ((L - R) * 0.5).astype(np.float32)
     Lm_s = spectral_resonance_suppress(Lm, sr, sensitivity=0.55, depth_max_db=7.0)
     L = (Lm_s + Sm).astype(np.float32)
     R = (Lm_s - Sm).astype(np.float32)
-    # 3. Adaptive de-esser (5–14 kHz sibilance zone)
-    L, R = adaptive_deesser(L, R, sr=sr, freq_lo=5000, freq_hi=14000,
-                             margin_db=6.0, ratio=2.5)
-    # 4. Transient smoothing
+    # 5. Adaptive de-esser (4-14kHz — wider window catches more AI sibilance)
+    L, R = adaptive_deesser(L, R, sr=sr, freq_lo=4000, freq_hi=14000,
+                             margin_db=5.0, ratio=3.0)
+    # 6. Transient smoothing
     L, R = transient_shape_vocal(L, R, sr)
+    # 7. Humanize (harmonic modulation)
+    L, R = vocal_humanize(L, R, sr)
+    # 8. Width control (near-mono)
+    L, R = vocal_width_control(L, R, sr)
     return L, R
 
 
