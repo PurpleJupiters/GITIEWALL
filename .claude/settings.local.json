@@ -17,7 +17,8 @@
       "mcp__telegram__get_updates",
       "Bash(xargs grep -l \"telegram\")",
       "WebFetch(domain:support.anthropic.com)",
-      "WebFetch(domain:support.claude.com)"
+      "WebFetch(domain:support.claude.com)",
+      "WebFetch(domain:claude.ai)"
     ]
   },
   "enableAllProjectMcpServers": true,
