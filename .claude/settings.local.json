@@ -29,7 +29,9 @@
       "Bash(Select-Object Name)",
       "Bash(Out-String)",
       "PowerShell(& \"C:\\\\Dev\\\\envs\\\\sunomaster\\\\python.exe\" \"E:\\\\SunoMaster\\\\scripts\\\\run_sunomaster_v54.py\" --input \"C:\\\\Users\\\\equat\\\\Downloads\\\\Transfinite \\(Agent WALL\\) Master.wav\")",
-      "Bash(gh release *)"
+      "Bash(gh release *)",
+      "Bash(dir \"E:\\\\SunoMaster\\\\output\\\\Transfinite \\(Agent WALL\\) Master\\\\demucs_stems\\\\htdemucs_6s\\\\Transfinite \\(Agent WALL\\) Master\")",
+      "Bash(dir \"E:\\\\SunoMaster\\\\output\\\\Transfinite \\(Agent WALL\\) Master\\\\demucs_stems\\\\htdemucs_6s\")"
     ]
   },
   "enableAllProjectMcpServers": true,

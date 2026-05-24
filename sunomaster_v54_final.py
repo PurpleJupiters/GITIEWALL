@@ -1532,11 +1532,23 @@ def main():
         raise RuntimeError("Demucs timed out after 45 minutes. Try a shorter track or switch to GPU.")
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Demucs failed (exit {e.returncode}). Check Demucs installation.")
-    stem_files = sorted((stems_dir / 'htdemucs_6s' / name).glob('*.wav'))
-    print(f"    Stems: {[s.stem for s in stem_files]}")
+    # Brief pause to let Windows flush Demucs file writes before glob
+    time.sleep(2)
+    stem_dir_path = stems_dir / 'htdemucs_6s' / name
+    stem_files = sorted(stem_dir_path.glob('*.wav'))
+    if len(stem_files) < 4:
+        # Retry once after a longer wait — Windows may still be flushing file handles
+        print(f"    WARNING: Only {len(stem_files)} stems found, waiting 5s and retrying glob...")
+        time.sleep(5)
+        stem_files = sorted(stem_dir_path.glob('*.wav'))
+    print(f"    Stems ({len(stem_files)}): {[s.stem for s in stem_files]}")
+    if len(stem_files) == 0:
+        raise RuntimeError(f"No stems found in {stem_dir_path}. Demucs may have failed silently.")
 
     # P0 + P1 per stem
     print(f"\n[P0+P1] Per-stem processing...")
+    # Ensure output directories exist (re-create if clean_slate timing caused issues)
+    for d in [p0_dir, p1_dir]: d.mkdir(parents=True, exist_ok=True)
     processed = {}
     for stem_path in stem_files:
         sn = stem_path.stem
@@ -1548,10 +1560,18 @@ def main():
         L_, R_  = d_[:,0].copy(), d_[:,1].copy(); del d_; gc.collect()
 
         L_, R_, is_ghost = pipeline_0(L_, R_, sr_, sn, mix_rms)
-        sf.write(str(p0_dir/f"{name}_P0_{sn}.wav"), np.stack([L_,R_],1), SR, subtype='PCM_24')
+        p0_path = p0_dir / f"{name}_P0_{sn}.wav"
+        try:
+            sf.write(str(p0_path), np.stack([L_,R_],1), SR, subtype='PCM_24')
+        except Exception as e_w:
+            print(f"    [{sn}] WARNING: P0 write failed ({e_w}) — continuing without P0 save")
 
         L_, R_ = pipeline_1(L_, R_, sn, is_ghost, mix_rms)
-        sf.write(str(p1_dir/f"{name}_P1_{sn}.wav"), np.stack([L_,R_],1), SR, subtype='PCM_24')
+        p1_path = p1_dir / f"{name}_P1_{sn}.wav"
+        try:
+            sf.write(str(p1_path), np.stack([L_,R_],1), SR, subtype='PCM_24')
+        except Exception as e_w:
+            print(f"    [{sn}] WARNING: P1 write failed ({e_w}) — continuing without P1 save")
 
         processed[sn] = (L_, R_)
         stem_rms = rms_db(np.concatenate([L_, R_]))
