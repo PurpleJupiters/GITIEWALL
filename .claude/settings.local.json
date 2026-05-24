@@ -33,7 +33,9 @@
       "Bash(dir \"E:\\\\SunoMaster\\\\output\\\\Transfinite \\(Agent WALL\\) Master\\\\demucs_stems\\\\htdemucs_6s\\\\Transfinite \\(Agent WALL\\) Master\")",
       "Bash(dir \"E:\\\\SunoMaster\\\\output\\\\Transfinite \\(Agent WALL\\) Master\\\\demucs_stems\\\\htdemucs_6s\")",
       "WebFetch(domain:on.soundcloud.com)",
-      "WebFetch(domain:soundcloud.com)"
+      "WebFetch(domain:soundcloud.com)",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__javascript_tool"
     ]
   },
   "enableAllProjectMcpServers": true,
