@@ -27,7 +27,8 @@
       "Bash(adb devices *)",
       "Bash(Get-ChildItem -Path \"E:\\\\Project Backups\\\\HonorPhoneBackup22MAY2026\\\\Audio\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object Name)",
-      "Bash(Out-String)"
+      "Bash(Out-String)",
+      "PowerShell(& \"C:\\\\Dev\\\\envs\\\\sunomaster\\\\python.exe\" \"E:\\\\SunoMaster\\\\scripts\\\\run_sunomaster_v54.py\" --input \"C:\\\\Users\\\\equat\\\\Downloads\\\\Transfinite \\(Agent WALL\\) Master.wav\")"
     ]
   },
   "enableAllProjectMcpServers": true,
