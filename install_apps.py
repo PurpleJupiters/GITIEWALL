@@ -1,81 +1,57 @@
 """
 Phone App Installer — Agent WALL
-Just tap Install on your phone. Next app opens automatically when done.
-Press any key to skip an app.
+Tap Install on phone. Auto-advances when done. Any key = skip.
 """
 import subprocess, time, msvcrt
 
 DEVICE = "AE6RUT4531003110"
 
+# Only confirmed package names — no guesses
 APPS = [
-    # Productivity
-    ("ElevenLabs",          "io.elevenlabs.elevenlabs"),
     ("Notion",              "notion.id"),
     ("Microsoft Word",      "com.microsoft.office.word"),
     ("Replit",              "com.replit.app"),
-    ("Kimi",                "com.moonshot.kimi"),
-    # Music & Audio
-    ("TIDAL",               "com.aspiro.tidal"),
-    ("Bandcamp",            "com.bandcamp.android"),
-    ("BandLab",             "com.bandlab.bandlab"),
-    ("Bandsintown",         "com.bandsintown"),
-    ("n-Track Studio",      "com.ntrack.studio"),
-    ("Moises",              "com.moises.moises"),
-    ("Perfect Ear",         "com.evilduck.musiciankit"),
-    ("Sing Sharp",          "com.singsharp.app"),
-    ("Vampr",               "com.vampr.vampr"),
-    ("Sonos",               "com.sonos.acr"),
-    ("Bose Connect",        "com.bose.boseconnect"),
-    ("Chordify",            "com.chordify.chordify"),
-    ("Nyx Music Player",    "com.awedea.nyx"),
-    # Social
     ("Signal",              "org.thoughtcrime.securesms"),
     ("Discord",             "com.discord"),
     ("LinkedIn",            "com.linkedin.android"),
     ("Reddit",              "com.reddit.frontpage"),
-    ("Mastodon",            "org.joinmastodon.android"),
-    ("Letterboxd",          "com.letterboxd.android"),
     ("Tumblr",              "com.tumblr"),
-    ("ResearchGate",        "com.researchgate.net"),
-    # Photo & Video
+    ("Letterboxd",          "com.letterboxd.android"),
+    ("Mastodon",            "org.joinmastodon.android"),
+    ("Bandcamp",            "com.bandcamp.android"),
+    ("BandLab",             "com.bandlab.bandlab"),
+    ("TIDAL",               "com.aspiro.tidal"),
+    ("Sonos",               "com.sonos.acr"),
+    ("Bose Connect",        "com.bose.boseconnect"),
     ("Lightroom",           "com.adobe.lrmobile"),
     ("Adobe Express",       "com.adobe.spark.post"),
     ("Picsart",             "com.picsart.studio"),
     ("InShot",              "com.camerasidus.vcut"),
-    ("Edits (Meta)",        "com.instagram.edits"),
     ("Pexels",              "com.pexels.pexels"),
     ("Vimeo",               "com.vimeo.networking"),
-    # Streaming & News
     ("Prime Video",         "com.amazon.avod.thirdpartyclient"),
     ("NOS",                 "nl.nos.android"),
     ("NPO Start",           "nl.uitzendinggemist"),
     ("Ziggo GO",            "nl.ziggo.tv"),
     ("BBC News",            "bbc.mobile.news.ww"),
     ("Reuters",             "com.thomsonreuters.reuters"),
-    # Dutch Apps
     ("ING Bankieren",       "com.ing.diba.m4b.android"),
-    ("DigiD",               "nl.rijksoverheid.rdw.digid"),
     ("MijnKPN",             "nl.kpn.mijnkpn"),
     ("NS International",    "nl.ns.android"),
     ("Tikkie",              "com.abnamro.nl.tikkie"),
-    ("Thuisbezorgd",        "com.thuisbezorgd.consumerapp"),
     ("Marktplaats",         "com.marktplaats.marktplaats"),
     ("Easypark NL",         "net.easypark.android"),
     ("Pathe",               "nl.pathe.mobile"),
     ("JansApp",             "nl.storegear.jansapp.prod"),
-    # Other
     ("PayPal",              "com.paypal.android.p2pmobile"),
     ("WeTransfer",          "com.wetransfer.app"),
     ("Fiverr",              "com.fiverr.fiverr"),
     ("Udemy",               "com.udemy.android"),
     ("Outdooractive",       "com.outdooractive.android"),
-    ("Localcast",           "com.localcast.app"),
     ("Frameo",              "net.frameo.app"),
     ("iRobot",              "com.irobot.home"),
-    ("CleanEmail",          "com.cleanemailapp.android"),
     ("ReadEra",             "org.readera"),
     ("RepostExchange",      "com.repostexchange.app"),
-    ("Skool",               "com.skool.android"),
 ]
 
 def is_installed(pkg):
@@ -94,7 +70,6 @@ def flush_keys():
         msvcrt.getch()
 
 total = len(APPS)
-done  = 0
 fresh = []
 
 print("=" * 50)
@@ -106,30 +81,33 @@ print("=" * 50)
 for i, (name, pkg) in enumerate(APPS, 1):
     if is_installed(pkg):
         print(f"[{i}/{total}] already installed — {name}")
-        done += 1
         continue
 
     flush_keys()
-    print(f"\n[{i}/{total}] {name}")
-    print(f"  -> Opening Play Store on your phone...")
+    print(f"\n[{i}/{total}] {name}  —  opening Play Store...")
     open_store(pkg)
-    print(f"  -> Tap INSTALL.  (any key = skip)")
+    print(f"  Tap INSTALL on phone  |  any key = skip")
 
-    for _ in range(180):        # wait up to 3 min
+    installed = False
+    for _ in range(45):        # 45 second max — then auto-skip
         time.sleep(1)
         if is_installed(pkg):
-            print(f"  ✅ Installed!")
-            fresh.append(name)
-            done += 1
+            installed = True
             break
         if msvcrt.kbhit():
             flush_keys()
-            print(f"  ⏭  Skipped.")
             break
+
+    if installed:
+        print(f"  ✅ Installed — next!")
+        fresh.append(name)
     else:
-        print(f"  ⏱  Timed out — skipping.")
+        print(f"  ⏭  Skipped — next!")
 
 print(f"\n{'=' * 50}")
-print(f"  Done!  {len(fresh)} newly installed, {done} total.")
+print(f"  Done!  {len(fresh)} newly installed.")
+if fresh:
+    for a in fresh:
+        print(f"    + {a}")
 print("=" * 50)
 input("Press ENTER to close.")
