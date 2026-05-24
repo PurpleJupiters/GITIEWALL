@@ -45,24 +45,24 @@ def get_chrome_cookies():
 
 
 def fetch_all_followings(session):
+    from urllib.parse import urlparse, parse_qs
     all_users = []
     seen = set()
-    url = f"{BASE_URL}/users/{USER_ID}/followings?limit=200&client_id={CLIENT_ID}&app_version=1779379648&app_locale=en"
+    offset = None
     page = 0
 
-    while url:
+    while True:
         page += 1
-        print(f"  Page {page}: fetching {url[:80]}...")
+        if offset:
+            url = f"{BASE_URL}/users/{USER_ID}/followings?limit=200&offset={offset}&client_id={CLIENT_ID}&app_version=1779379648&app_locale=en"
+        else:
+            url = f"{BASE_URL}/users/{USER_ID}/followings?limit=200&client_id={CLIENT_ID}&app_version=1779379648&app_locale=en"
+
+        print(f"  Page {page}: offset={offset} ...")
         try:
-            # Cursor pages are self-signed — strip Authorization header to avoid conflict
-            if page > 1:
-                page_headers = {k: v for k, v in session.headers.items() if k.lower() != 'authorization'}
-                resp = session.get(url, timeout=15, verify=False, headers=page_headers)
-            else:
-                resp = session.get(url, timeout=15, verify=False)
+            resp = session.get(url, timeout=15, verify=False)
             if resp.status_code != 200:
                 print(f"  ERROR: status {resp.status_code} on page {page}")
-                # Try without next_href — try offset-based if first page worked
                 break
             data = resp.json()
         except Exception as e:
@@ -70,16 +70,29 @@ def fetch_all_followings(session):
             break
 
         collection = data.get("collection", [])
+        added = 0
         for user in collection:
             uid = user.get("id")
             if uid and uid not in seen:
                 seen.add(uid)
                 all_users.append(user)
+                added += 1
 
-        url = data.get("next_href")
-        if url:
-            time.sleep(0.3)
-        print(f"    Got {len(collection)} users. Total so far: {len(all_users)}")
+        print(f"    Got {len(collection)} users ({added} new). Total: {len(all_users)}")
+
+        # Extract offset from next_href without using the signed URL directly
+        next_href = data.get("next_href")
+        if not next_href or len(collection) == 0:
+            break
+
+        parsed = urlparse(next_href)
+        params = parse_qs(parsed.query)
+        next_offset = params.get("offset", [None])[0]
+
+        if not next_offset or next_offset == offset:
+            break
+        offset = next_offset
+        time.sleep(0.3)
 
     return all_users
 
