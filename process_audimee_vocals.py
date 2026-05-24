@@ -71,8 +71,9 @@ def _has_real_stems(song_name: str) -> bool:
         dk = fuzzy_key(d.name)
         overlap = min(len(key), len(dk))
         if overlap >= 6 and key[:overlap] == dk[:overlap]:
-            stems_path = d / "demucs_stems" / "htdemucs_6s"
-            if stems_path.exists() and any(stems_path.rglob("*.wav")):
+            # The pipeline's --reuse-stems checks for P1_stems/*_P1_drums.wav
+            p1_dir = d / "P1_stems"
+            if p1_dir.exists() and any(p1_dir.glob("*_P1_drums.wav")):
                 return True
     return False
 
