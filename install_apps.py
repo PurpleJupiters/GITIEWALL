@@ -1,7 +1,7 @@
 import subprocess, time, sys
 
 DEVICE = "AE6RUT4531003110"
-WAIT   = 15   # seconds per app before auto-skip
+WAIT   = 8    # seconds per app before auto-skip
 
 APPS = [
     ("Notion",              "notion.id"),
