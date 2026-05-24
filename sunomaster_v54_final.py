@@ -1520,9 +1520,12 @@ def main():
     print(f"\n[BPM] Detected: {bpm:.1f}")
 
     # Demucs separation
+    # --float32 avoids the torchaudio 24-bit sample-warping issue that corrupts
+    # stems written near -1. The float32 WAV files are then saved as PCM_24 after
+    # processing — so final output quality is identical.
     print(f"\n[1] Demucs separation (htdemucs_6s, CPU)...")
     cmd = [sys.executable, '-m', 'demucs.separate',
-           '--name', 'htdemucs_6s', '--out', str(stems_dir), '--int24', str(src)]
+           '--name', 'htdemucs_6s', '--out', str(stems_dir), '--float32', str(src)]
     try:
         subprocess.run(cmd, check=True, timeout=2700)  # 45 min max for long tracks on CPU
     except subprocess.TimeoutExpired:
@@ -1537,7 +1540,11 @@ def main():
     processed = {}
     for stem_path in stem_files:
         sn = stem_path.stem
-        d_, sr_ = sf.read(str(stem_path), dtype='float32', always_2d=True)
+        try:
+            d_, sr_ = sf.read(str(stem_path), dtype='float32', always_2d=True)
+        except Exception as e_read:
+            print(f"    [{sn}] WARNING: Could not read stem file: {e_read} — skipping stem")
+            continue
         L_, R_  = d_[:,0].copy(), d_[:,1].copy(); del d_; gc.collect()
 
         L_, R_, is_ghost = pipeline_0(L_, R_, sr_, sn, mix_rms)
