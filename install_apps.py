@@ -1,12 +1,8 @@
-"""
-Phone App Installer — Agent WALL
-Tap Install on phone. Auto-advances when done. Any key = skip.
-"""
-import subprocess, time, msvcrt
+import subprocess, time, sys
 
 DEVICE = "AE6RUT4531003110"
+WAIT   = 60   # seconds per app before auto-skip
 
-# Only confirmed package names — no guesses
 APPS = [
     ("Notion",              "notion.id"),
     ("Microsoft Word",      "com.microsoft.office.word"),
@@ -54,66 +50,47 @@ APPS = [
     ("RepostExchange",      "com.repostexchange.app"),
 ]
 
-def is_installed(pkg):
+def run(cmd):
     try:
-        r = subprocess.run(["adb", "-s", DEVICE, "shell", "pm", "list", "packages", pkg],
-                           capture_output=True, text=True, timeout=8)
-        return pkg in r.stdout
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=8).stdout
     except Exception:
-        return False
+        return ""
+
+def is_installed(pkg):
+    return pkg in run(["adb", "-s", DEVICE, "shell", "pm", "list", "packages", pkg])
 
 def open_store(pkg):
-    try:
-        subprocess.run(["adb", "-s", DEVICE, "shell", "am", "start",
-                        "-a", "android.intent.action.VIEW",
-                        "-d", f"market://details?id={pkg}"],
-                       capture_output=True, timeout=8)
-    except Exception:
-        pass
-
-def flush_keys():
-    while msvcrt.kbhit():
-        msvcrt.getch()
+    run(["adb", "-s", DEVICE, "shell", "am", "start",
+         "-a", "android.intent.action.VIEW", "-d", f"market://details?id={pkg}"])
 
 total = len(APPS)
 fresh = []
 
-print("=" * 50)
-print(f"  APP INSTALLER  —  {total} apps")
-print(f"  Tap Install on phone. Auto-advances when done.")
-print(f"  Any key = skip current app.")
-print("=" * 50)
+print(f"APP INSTALLER — {total} apps — tap Install on phone", flush=True)
+print(f"Auto-skips after {WAIT}s if not installed\n", flush=True)
 
 for i, (name, pkg) in enumerate(APPS, 1):
     if is_installed(pkg):
-        print(f"[{i}/{total}] already installed — {name}")
+        print(f"[{i}/{total}] HAVE IT: {name}", flush=True)
         continue
 
-    flush_keys()
-    print(f"\n[{i}/{total}] {name}  —  opening Play Store...")
+    print(f"[{i}/{total}] OPENING: {name}", flush=True)
     open_store(pkg)
-    print(f"  Tap INSTALL on phone  |  any key = skip")
 
     installed = False
-    for _ in range(45):        # 45 second max — then auto-skip
+    for t in range(WAIT):
         time.sleep(1)
+        if t % 10 == 9:
+            print(f"  ...{WAIT - t - 1}s left", flush=True)
         if is_installed(pkg):
             installed = True
             break
-        if msvcrt.kbhit():
-            flush_keys()
-            break
 
     if installed:
-        print(f"  ✅ Installed — next!")
+        print(f"  DONE: {name}\n", flush=True)
         fresh.append(name)
     else:
-        print(f"  ⏭  Skipped — next!")
+        print(f"  SKIP: {name}\n", flush=True)
 
-print(f"\n{'=' * 50}")
-print(f"  Done!  {len(fresh)} newly installed.")
-if fresh:
-    for a in fresh:
-        print(f"    + {a}")
-print("=" * 50)
-input("Press ENTER to close.")
+print(f"\nFINISHED — {len(fresh)} installed: {fresh}", flush=True)
+input("Enter to close")
