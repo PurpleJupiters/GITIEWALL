@@ -2,8 +2,11 @@
 SoundCloud Auto-Unfollow — Agent WALL
 Unfollows all 440 artists in soundcloud_UNFOLLOW.xlsx
 """
-import json, requests, time, urllib3, pandas as pd
+import json, requests, time, urllib3, pandas as pd, sys
 from datetime import datetime
+
+# Force UTF-8 stdout so emoji in artist names don't crash print()
+sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1)
 
 urllib3.disable_warnings()
 
