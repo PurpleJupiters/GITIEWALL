@@ -124,7 +124,7 @@ def parse_user(user):
         "Verified":       "Yes" if user.get("verified") else "No",
         "Pro":            user.get("creator_subscription", {}).get("product", {}).get("id", ""),
         "Profile URL":    user.get("permalink_url", ""),
-        "Unfollow?":      "YES" if (user.get("followers_count") or 0) < 1000 else "keep",
+        "Unfollow?":      "TBD",  # set after ranking
     }
 
 
@@ -155,13 +155,13 @@ def save_excel(rows):
             cell = ws.cell(row=row_idx, column=col_idx, value=val)
             cell.alignment = Alignment(vertical="center")
         # Highlight rows: red = unfollow candidate, green = keep
-        highlight = red_fill if row.get("Unfollow?") == "YES" else green_fill
+        highlight = red_fill if row.get("Unfollow?") == "UNFOLLOW" else green_fill
         for col_idx in range(1, len(headers) + 1):
             ws.cell(row=row_idx, column=col_idx).fill = highlight
 
     # Column widths
     col_widths = {
-        "Username": 25, "Full Name": 22, "City": 18, "Country": 8,
+        "Rank": 6, "Username": 25, "Full Name": 22, "City": 18, "Country": 8,
         "Followers": 12, "Following": 12, "Tracks": 8,
         "Joined SC": 12, "Years on SC": 12, "Verified": 9, "Pro": 14,
         "Profile URL": 45, "Unfollow?": 12
@@ -180,9 +180,11 @@ def save_excel(rows):
 
     summary = [
         ("Total following", total),
-        ("Unfollow candidates (<1000 followers)", to_unfollow),
-        ("Keep (>=1000 followers)", to_keep),
+        ("Keep (top 800 by followers)", to_keep),
+        ("Unfollow candidates (rank 801+)", to_unfollow),
         ("% reduction", f"{round(to_unfollow/total*100, 1)}%" if total else "0%"),
+        ("Rank 800 follower threshold", rows[799]["Followers"] if len(rows) >= 800 else "N/A"),
+        ("NOTE: Review list — override UNFOLLOW to 'keep' for personal contacts", ""),
         ("Generated", datetime.now().strftime("%Y-%m-%d %H:%M")),
     ]
     for r_idx, (label, value) in enumerate(summary, 1):
@@ -227,8 +229,11 @@ def main():
     print("Parsing data...")
     rows = [parse_user(u) for u in users]
 
-    # Sort: unfollow candidates first, then by followers desc
-    rows.sort(key=lambda r: (r["Unfollow?"] != "YES", -(r["Followers"] or 0)))
+    # Sort by followers descending, then mark top 800 as keep, rest as unfollow
+    rows.sort(key=lambda r: -(r["Followers"] or 0))
+    for i, r in enumerate(rows):
+        r["Rank"] = i + 1
+        r["Unfollow?"] = "keep" if i < 800 else "UNFOLLOW"
 
     print("Saving files...")
     save_excel(rows)
@@ -238,11 +243,13 @@ def main():
         json.dump(users, f, indent=2)
     print(f"  Raw JSON saved: {OUTPUT_JSON}")
 
-    to_unfollow = sum(1 for r in rows if r["Unfollow?"] == "YES")
+    to_unfollow = sum(1 for r in rows if r["Unfollow?"] == "UNFOLLOW")
+    threshold = rows[799]["Followers"] if len(rows) >= 800 else "N/A"
     print(f"\n=== DONE ===")
-    print(f"Total following: {len(rows)}")
-    print(f"Unfollow candidates (<1000 followers): {to_unfollow}")
-    print(f"Keep (>=1000 followers): {len(rows) - to_unfollow}")
+    print(f"Total following:          {len(rows)}")
+    print(f"Keep (top 800):           {len(rows) - to_unfollow}")
+    print(f"Unfollow candidates:      {to_unfollow}")
+    print(f"Follower threshold at #800: {threshold}")
     print(f"\nOpen: {OUTPUT_XLSX}")
 
 
