@@ -54,11 +54,12 @@ def fetch_all_followings(session):
         page += 1
         print(f"  Page {page}: fetching {url[:80]}...")
         try:
-            # First page uses Bearer auth; cursor pages are self-signed, strip auth header
-        page_headers = {}
-        if page > 1:
-            page_headers = {k: v for k, v in session.headers.items() if k != 'Authorization'}
-        resp = session.get(url, timeout=15, verify=False, headers=page_headers if page > 1 else None)
+            # Cursor pages are self-signed — strip Authorization header to avoid conflict
+            if page > 1:
+                page_headers = {k: v for k, v in session.headers.items() if k.lower() != 'authorization'}
+                resp = session.get(url, timeout=15, verify=False, headers=page_headers)
+            else:
+                resp = session.get(url, timeout=15, verify=False)
             if resp.status_code != 200:
                 print(f"  ERROR: status {resp.status_code} on page {page}")
                 # Try without next_href — try offset-based if first page worked
