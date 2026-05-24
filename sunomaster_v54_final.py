@@ -1935,24 +1935,31 @@ def main():
             # Normalise to -1 dBFS
             vpk = max(float(np.max(np.abs(vL))), float(np.max(np.abs(vR))))
             if vpk > 0: sc = np.float32(10**(-1.0/20)/vpk); vL*=sc; vR*=sc
-            # Save to desktop (resolved dynamically — works on any user account)
+            # Save to desktop Latest Mastered Songs AND to AUDIMEE VOCAL DOWNLOADS
             vdesk = Path.home() / "Desktop" / "MUSIC OUTPUT" / "Latest Mastered Songs"
             vdesk.mkdir(parents=True, exist_ok=True)
-            vdest = vdesk / "Transfinite_vocals.wav"
+            audimee_folder = vdesk / "AUDIMEE VOCAL DOWNLOADS"
+            audimee_folder.mkdir(parents=True, exist_ok=True)
+            vocal_filename = f"{name}_vocals.wav"
+            vdest = vdesk / vocal_filename
+            vdest_aud = audimee_folder / vocal_filename
             replaced_v = vdest.exists()
             sf.write(str(vdest), np.stack([vL,vR],1), SR, subtype='PCM_24')
+            shutil.copy2(str(vdest), str(vdest_aud))
             action_v = "Replaced" if replaced_v else "Saved"
             print(f"  [VOCALS EXPORT] {action_v}: {vdest}")
+            print(f"  [VOCALS EXPORT] Audimee copy: {vdest_aud}")
             del vL, vR; gc.collect()
         except Exception as e:
             print(f"  [VOCALS EXPORT] Failed: {e}")
 
     # ── GUIDE FILE GENERATION ────────────────────────────────────────────────────
     # Produces click, kick pulse, vocal envelope, and MIDI for Audimee vocal resynthesis.
-    # All files land in the desktop folder alongside the vocal and master exports.
+    # Guide files land in AUDIMEE VOCAL DOWNLOADS so they're ready to upload.
     try:
         desktop_folder = Path.home() / "Desktop" / "MUSIC OUTPUT" / "Latest Mastered Songs"
-        desktop_folder.mkdir(parents=True, exist_ok=True)
+        audimee_folder = desktop_folder / "AUDIMEE VOCAL DOWNLOADS"
+        audimee_folder.mkdir(parents=True, exist_ok=True)
         song_duration_s = len(orig_L_48) / SR
         generate_guide_files(
             bpm          = bpm,
@@ -1961,7 +1968,7 @@ def main():
             drums_R      = _guide_drums_R,
             vocal_L      = _guide_vocal_L,
             vocal_R      = _guide_vocal_R,
-            output_dir   = str(desktop_folder),
+            output_dir   = str(audimee_folder),
             song_name    = name,
             sr           = SR,
         )
