@@ -1,0 +1,7 @@
+[14:05:24] === Unfollow started — 440 artists ===
+[14:05:24] AUTH EXPIRED at 1/440. Re-run after refreshing token.
+[14:05:24] 
+=== DONE ===
+[14:05:24] Unfollowed: 0/440
+[14:05:24] Failed: 0
+[14:05:24] New following count should be approx: 2000 - 0 = 2000
