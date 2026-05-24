@@ -146,21 +146,26 @@ for i, (name, package) in enumerate(APPS, 1):
     while elapsed < timeout:
         time.sleep(3)
         elapsed += 3
+        # App was installed manually or just now — skip immediately, no stop
         if is_installed(package):
             result = "installed"
             break
         if skip_flag.is_set():
             result = "skipped"
             break
+        # Print a heartbeat every 30s so window doesn't look frozen
+        if elapsed % 30 == 0:
+            remaining = timeout - elapsed
+            print(f"          ... waiting ({remaining}s left | ENTER = skip)")
 
     if result == "installed":
-        print(f"          ✅ Installed! Next up...")
+        print(f"          ✅ Done — moving to next app...")
         fresh.append(name)
     elif result == "skipped":
-        print(f"          ⏭  Skipped: {name}")
+        print(f"          ⏭  Skipped — moving to next app...")
         skipped.append(name)
     else:
-        print(f"          ⏱  Timed out — moving on: {name}")
+        print(f"          ⏱  Not found/timeout — moving to next app...")
         skipped.append(name)
 
     time.sleep(1)
