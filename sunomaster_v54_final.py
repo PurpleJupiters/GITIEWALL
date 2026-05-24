@@ -1784,63 +1784,80 @@ def main():
         del y_bp; gc.collect()
     print(f"\n[BPM] Detected: {bpm:.1f}")
 
-    # Demucs separation
-    # --float32 avoids the torchaudio 24-bit sample-warping issue that corrupts
-    # stems written near -1. The float32 WAV files are then saved as PCM_24 after
-    # processing — so final output quality is identical.
-    print(f"\n[1] Demucs separation (htdemucs_6s, CPU)...")
-    cmd = [sys.executable, '-m', 'demucs.separate',
-           '--name', 'htdemucs_6s', '--out', str(stems_dir), '--float32', str(src)]
-    try:
-        subprocess.run(cmd, check=True, timeout=2700)  # 45 min max for long tracks on CPU
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("Demucs timed out after 45 minutes. Try a shorter track or switch to GPU.")
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Demucs failed (exit {e.returncode}). Check Demucs installation.")
-    # Brief pause to let Windows flush Demucs file writes before glob
-    time.sleep(2)
-    stem_dir_path = stems_dir / 'htdemucs_6s' / name
-    stem_files = sorted(stem_dir_path.glob('*.wav'))
-    if len(stem_files) < 4:
-        # Retry once after a longer wait — Windows may still be flushing file handles
-        print(f"    WARNING: Only {len(stem_files)} stems found, waiting 5s and retrying glob...")
-        time.sleep(5)
-        stem_files = sorted(stem_dir_path.glob('*.wav'))
-    print(f"    Stems ({len(stem_files)}): {[s.stem for s in stem_files]}")
-    if len(stem_files) == 0:
-        raise RuntimeError(f"No stems found in {stem_dir_path}. Demucs may have failed silently.")
-
-    # P0 + P1 per stem
-    print(f"\n[P0+P1] Per-stem processing...")
-    # Ensure output directories exist (re-create if clean_slate timing caused issues)
-    for d in [p0_dir, p1_dir]: d.mkdir(parents=True, exist_ok=True)
+    # ── DEMUCS + P0/P1 (skipped when --reuse-stems) ──────────────────────────────
     processed = {}
-    for stem_path in stem_files:
-        sn = stem_path.stem
+    if args.reuse_stems and (p1_dir / f"{name}_P1_drums.wav").exists():
+        print(f"\n[REUSE] Loading existing P1 stems (skipping Demucs)...")
+        for p1_path in sorted(p1_dir.glob(f"{name}_P1_*.wav")):
+            sn = p1_path.stem.replace(f"{name}_P1_", "")
+            d_, _ = sf.read(str(p1_path), dtype='float32', always_2d=True)
+            processed[sn] = (d_[:,0].copy(), d_[:,1].copy()); del d_; gc.collect()
+            print(f"    [{sn}] loaded from P1 cache  RMS={rms_db(np.concatenate(processed[sn])):.1f}dBFS")
+    else:
+        # Demucs separation
+        # --float32 avoids the torchaudio 24-bit sample-warping issue that corrupts
+        # stems written near -1. Float32 WAV → saved as PCM_24 after processing.
+        print(f"\n[1] Demucs separation (htdemucs_6s, CPU)...")
+        cmd = [sys.executable, '-m', 'demucs.separate',
+               '--name', 'htdemucs_6s', '--out', str(stems_dir), '--float32', str(src)]
         try:
-            d_, sr_ = sf.read(str(stem_path), dtype='float32', always_2d=True)
-        except Exception as e_read:
-            print(f"    [{sn}] WARNING: Could not read stem file: {e_read} — skipping stem")
-            continue
-        L_, R_  = d_[:,0].copy(), d_[:,1].copy(); del d_; gc.collect()
+            subprocess.run(cmd, check=True, timeout=2700)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("Demucs timed out after 45 minutes.")
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Demucs failed (exit {e.returncode}).")
+        time.sleep(2)
+        stem_dir_path = stems_dir / 'htdemucs_6s' / name
+        stem_files = sorted(stem_dir_path.glob('*.wav'))
+        if len(stem_files) < 4:
+            print(f"    WARNING: Only {len(stem_files)} stems found, retrying in 5s...")
+            time.sleep(5); stem_files = sorted(stem_dir_path.glob('*.wav'))
+        print(f"    Stems ({len(stem_files)}): {[s.stem for s in stem_files]}")
+        if len(stem_files) == 0:
+            raise RuntimeError(f"No stems in {stem_dir_path}. Demucs may have failed silently.")
 
-        L_, R_, is_ghost = pipeline_0(L_, R_, sr_, sn, mix_rms)
-        p0_path = p0_dir / f"{name}_P0_{sn}.wav"
-        try:
-            sf.write(str(p0_path), np.stack([L_,R_],1), SR, subtype='PCM_24')
-        except Exception as e_w:
-            print(f"    [{sn}] WARNING: P0 write failed ({e_w}) — continuing without P0 save")
+        # P0 + P1 per stem
+        print(f"\n[P0+P1] Per-stem processing...")
+        for d in [p0_dir, p1_dir]: d.mkdir(parents=True, exist_ok=True)
+        for stem_path in stem_files:
+            sn = stem_path.stem
+            try:
+                d_, sr_ = sf.read(str(stem_path), dtype='float32', always_2d=True)
+            except Exception as e_read:
+                print(f"    [{sn}] WARNING: Could not read stem: {e_read} — skipping")
+                continue
+            L_, R_ = d_[:,0].copy(), d_[:,1].copy(); del d_; gc.collect()
+            L_, R_, is_ghost = pipeline_0(L_, R_, sr_, sn, mix_rms)
+            try: sf.write(str(p0_dir/f"{name}_P0_{sn}.wav"), np.stack([L_,R_],1), SR, subtype='PCM_24')
+            except Exception as e_w: print(f"    [{sn}] P0 write failed: {e_w}")
+            L_, R_ = pipeline_1(L_, R_, sn, is_ghost, mix_rms)
+            try: sf.write(str(p1_dir/f"{name}_P1_{sn}.wav"), np.stack([L_,R_],1), SR, subtype='PCM_24')
+            except Exception as e_w: print(f"    [{sn}] P1 write failed: {e_w}")
+            processed[sn] = (L_, R_)
+            print(f"    [{sn}] RMS={rms_db(np.concatenate([L_,R_])):.1f}dBFS  Ghost={is_ghost}")
 
-        L_, R_ = pipeline_1(L_, R_, sn, is_ghost, mix_rms)
-        p1_path = p1_dir / f"{name}_P1_{sn}.wav"
-        try:
-            sf.write(str(p1_path), np.stack([L_,R_],1), SR, subtype='PCM_24')
-        except Exception as e_w:
-            print(f"    [{sn}] WARNING: P1 write failed ({e_w}) — continuing without P1 save")
-
-        processed[sn] = (L_, R_)
-        stem_rms = rms_db(np.concatenate([L_, R_]))
-        print(f"    [{sn}] RMS={stem_rms:.1f}dBFS  Ghost={is_ghost}")
+    # ── VOCAL INJECTION (--vocal) ─────────────────────────────────────────────
+    if args.vocal:
+        vocal_path = Path(args.vocal)
+        if vocal_path.exists():
+            print(f"\n[VOCAL INJECT] Loading: {vocal_path.name}")
+            vd, vsr = sf.read(str(vocal_path), dtype='float32', always_2d=True)
+            vL_ext, vR_ext = vd[:,0].copy(), vd[:,1].copy(); del vd; gc.collect()
+            if vsr != SR:
+                vL_ext = librosa.resample(vL_ext.astype(np.float64), orig_sr=vsr, target_sr=SR).astype(np.float32)
+                vR_ext = librosa.resample(vR_ext.astype(np.float64), orig_sr=vsr, target_sr=SR).astype(np.float32)
+            # Auto-align to Demucs reference vocal
+            if 'vocals' in processed:
+                ref_vL, ref_vR = processed['vocals']
+                vL_ext, vR_ext, off_ms, score = auto_align_vocal(vL_ext, vR_ext, ref_vL, ref_vR, SR)
+                if score < 0.3:
+                    print(f"  [ALIGN] WARNING: low score ({score:.2f}) — vocal may be out of sync. Proceeding anyway.")
+            # Apply full P1 vocal chain to the clean Audimee vocal
+            vL_ext, vR_ext = process_ai_vocals(vL_ext, vR_ext, SR)
+            processed['vocals'] = (vL_ext, vR_ext)
+            print(f"  [VOCAL INJECT] Demucs vocal replaced with Audimee vocal")
+        else:
+            print(f"  [VOCAL INJECT] WARNING: file not found: {vocal_path} — using Demucs vocal")
 
     # P2 — Mixing
     print(f"\n[P2] Mixing...")
@@ -1848,6 +1865,9 @@ def main():
                               orig_L=orig_L_48, orig_R=orig_R_48)
     sf.write(str(master_dir/f"{name}_P2_mix.wav"), np.stack([mix_L,mix_R],1), SR, subtype='PCM_24')
 
+    # Save drum + vocal stems for guide file generation (before del processed)
+    _guide_drums_L, _guide_drums_R = processed.get('drums', (np.zeros(1,np.float32), np.zeros(1,np.float32)))
+    _guide_vocal_L, _guide_vocal_R = processed.get('vocals', (np.zeros(1,np.float32), np.zeros(1,np.float32)))
     del processed; gc.collect()
 
     # P3 — Mastering
@@ -1926,6 +1946,28 @@ def main():
             del vL, vR; gc.collect()
         except Exception as e:
             print(f"  [VOCALS EXPORT] Failed: {e}")
+
+    # ── GUIDE FILE GENERATION ────────────────────────────────────────────────────
+    # Produces click, kick pulse, vocal envelope, and MIDI for Audimee vocal resynthesis.
+    # All files land in the desktop folder alongside the vocal and master exports.
+    try:
+        desktop_folder = Path.home() / "Desktop" / "MUSIC OUTPUT" / "Latest Mastered Songs"
+        desktop_folder.mkdir(parents=True, exist_ok=True)
+        song_duration_s = len(orig_L_48) / SR
+        generate_guide_files(
+            bpm          = bpm,
+            duration_s   = song_duration_s,
+            drums_L      = _guide_drums_L,
+            drums_R      = _guide_drums_R,
+            vocal_L      = _guide_vocal_L,
+            vocal_R      = _guide_vocal_R,
+            output_dir   = str(desktop_folder),
+            song_name    = name,
+            sr           = SR,
+        )
+        del _guide_drums_L, _guide_drums_R, _guide_vocal_L, _guide_vocal_R; gc.collect()
+    except Exception as e_guide:
+        print(f"  [GUIDE FILES] Failed: {e_guide}")
 
     # ── DESKTOP DELIVERY ─────────────────────────────────────────────────────────
     # Copy the final master to the desktop folder using the original song filename.

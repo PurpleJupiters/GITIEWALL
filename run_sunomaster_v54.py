@@ -18,7 +18,8 @@ import subprocess
 import argparse
 from pathlib import Path
 
-def run_pipeline(input_file, reference_file=None, output_dir=None, bpm=None):
+def run_pipeline(input_file, reference_file=None, output_dir=None, bpm=None,
+                 vocal_file=None, reuse_stems=False):
     """Run the SunoMaster v5.4 pipeline."""
     
     # Defaults
@@ -48,6 +49,10 @@ def run_pipeline(input_file, reference_file=None, output_dir=None, bpm=None):
     
     if bpm:
         cmd.extend(["--bpm", str(bpm)])
+    if vocal_file:
+        cmd.extend(["--vocal", str(vocal_file)])
+    if reuse_stems:
+        cmd.append("--reuse-stems")
     
     print(f"\n{'='*60}")
     print(f"  SunoMaster v5.4 — Claude Code Runner")
@@ -104,14 +109,26 @@ Examples:
         default=None,
         help="BPM override (optional — auto-detected if not provided)"
     )
-    
+    parser.add_argument(
+        "--vocal",
+        default=None,
+        help="External vocal WAV from Audimee (replaces Demucs vocal stem, auto-aligned)"
+    )
+    parser.add_argument(
+        "--reuse-stems",
+        action="store_true",
+        help="Skip Demucs + P0/P1 and reuse stems from previous run (fast re-master, ~2 min)"
+    )
+
     args = parser.parse_args()
-    
+
     returncode = run_pipeline(
         input_file=args.input,
         reference_file=args.reference,
         output_dir=args.output,
-        bpm=args.bpm
+        bpm=args.bpm,
+        vocal_file=args.vocal,
+        reuse_stems=args.reuse_stems,
     )
     
     sys.exit(returncode)
