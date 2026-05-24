@@ -19,7 +19,8 @@
       "WebFetch(domain:support.anthropic.com)",
       "WebFetch(domain:support.claude.com)",
       "WebFetch(domain:claude.ai)",
-      "mcp__Claude_in_Chrome__tabs_context_mcp"
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\Tesseract-OCR\\\\tesseract.exe\" -ErrorAction SilentlyContinue; Get-ChildItem \"${env:LOCALAPPDATA}\\\\Programs\\\\Tesseract-OCR\\\\tesseract.exe\" -ErrorAction SilentlyContinue)"
     ]
   },
   "enableAllProjectMcpServers": true,
