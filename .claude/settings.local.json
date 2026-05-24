@@ -31,7 +31,9 @@
       "PowerShell(& \"C:\\\\Dev\\\\envs\\\\sunomaster\\\\python.exe\" \"E:\\\\SunoMaster\\\\scripts\\\\run_sunomaster_v54.py\" --input \"C:\\\\Users\\\\equat\\\\Downloads\\\\Transfinite \\(Agent WALL\\) Master.wav\")",
       "Bash(gh release *)",
       "Bash(dir \"E:\\\\SunoMaster\\\\output\\\\Transfinite \\(Agent WALL\\) Master\\\\demucs_stems\\\\htdemucs_6s\\\\Transfinite \\(Agent WALL\\) Master\")",
-      "Bash(dir \"E:\\\\SunoMaster\\\\output\\\\Transfinite \\(Agent WALL\\) Master\\\\demucs_stems\\\\htdemucs_6s\")"
+      "Bash(dir \"E:\\\\SunoMaster\\\\output\\\\Transfinite \\(Agent WALL\\) Master\\\\demucs_stems\\\\htdemucs_6s\")",
+      "WebFetch(domain:on.soundcloud.com)",
+      "WebFetch(domain:soundcloud.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
