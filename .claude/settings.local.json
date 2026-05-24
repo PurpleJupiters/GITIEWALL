@@ -46,7 +46,9 @@
       "PowerShell(Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"cd 'E:\\\\SunoMaster\\\\scripts'; python install_apps.py\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\equat\\\\Desktop\\\\MUSIC OUTPUT\\\\Latest Mastered Songs\\\\AUDIMEE VOCAL DOWNLOADS\" 2>/dev/null; echo \"Folder created\")",
       "WebFetch(domain:audimee.com)",
-      "Bash(C:\\\\Dev\\\\envs\\\\sunomaster\\\\python.exe -m pip install playwright --quiet)"
+      "Bash(C:\\\\Dev\\\\envs\\\\sunomaster\\\\python.exe -m pip install playwright --quiet)",
+      "Bash(cmd.exe /c \"C:\\\\Dev\\\\envs\\\\sunomaster\\\\python.exe -m pip install playwright 2>&1\")",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\equat\\\\Desktop\\\\MUSIC OUTPUT\\\\Latest Mastered Songs\\\\AUDIMEE VOCAL DOWNLOADS\" -Recurse | ForEach-Object { $_.FullName.Substring\\(0, [Math]::Min\\($_.FullName.Length, 150\\)\\) })"
     ]
   },
   "enableAllProjectMcpServers": true,

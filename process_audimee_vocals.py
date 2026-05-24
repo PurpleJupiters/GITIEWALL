@@ -48,9 +48,7 @@ def fuzzy_key(s: str) -> str:
 def find_original_input(vocal_stem: Path) -> Path | None:
     """
     Find the original input WAV for a given Audimee vocal file.
-    Looks in:
-      1. C:\Users\equat\Downloads\
-      2. C:\Users\equat\Desktop\MUSIC OUTPUT\Latest Mastered Songs\
+    Looks in Downloads and Latest Mastered Songs.
     Matches by fuzzy song name prefix.
     """
     vocal_key = fuzzy_key(vocal_stem.stem)
@@ -166,15 +164,14 @@ def main():
             z.unlink()
             print(f"  [UNZIP] Deleted zip: {z.name}")
 
-    # Also pick up any WAVs already in the folder that look like Audimee outputs
-    # (i.e. not the _vocals.wav we put there ourselves)
+    # Also pick up any WAVs already in the folder (or subfolders) that look like
+    # Audimee outputs — i.e. NOT the _vocals.wav we put there ourselves, and NOT
+    # the guide files the pipeline generates.
+    GUIDE_PATTERNS = ("_click_", "_kick_pulse", "_vocal_envelope", "_master_v")
     existing_wavs = [
-        f for f in AUDIMEE_FOLDER.glob("*.wav")
+        f for f in AUDIMEE_FOLDER.rglob("*.wav")
         if not f.name.endswith("_vocals.wav")
-        and not f.name.endswith("_click_")
-        and "_click_" not in f.name
-        and "_kick_pulse" not in f.name
-        and "_vocal_envelope" not in f.name
+        and not any(p in f.name for p in GUIDE_PATTERNS)
     ]
     all_wavs = list({f.name: f for f in extracted_wavs + existing_wavs}.values())
 
@@ -196,7 +193,7 @@ def main():
     print()
     results = []
     for vocal_wav in all_wavs:
-        print(f"\n{'─'*50}")
+        print(f"\n{'-'*50}")
         print(f"  Processing: {vocal_wav.name}")
 
         # Find original input WAV
