@@ -37,7 +37,10 @@
       "mcp__Claude_in_Chrome__navigate",
       "mcp__Claude_in_Chrome__javascript_tool",
       "mcp__Claude_in_Chrome__read_network_requests",
-      "Bash(cd /mnt/e/SunoMaster/scripts && python soundcloud_unfollow.py 2>&1 | head -20)"
+      "Bash(cd /mnt/e/SunoMaster/scripts && python soundcloud_unfollow.py 2>&1 | head -20)",
+      "mcp__Claude_in_Chrome__list_connected_browsers",
+      "mcp__Claude_in_Chrome__select_browser",
+      "mcp__Claude_in_Chrome__computer"
     ]
   },
   "enableAllProjectMcpServers": true,
