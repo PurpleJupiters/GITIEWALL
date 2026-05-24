@@ -71,7 +71,7 @@ APPS = [
     ("MijnKPN",             "nl.kpn.mijnkpn"),
     ("NS International",    "nl.ns.android"),
     ("Tikkie",              "com.abnamro.nl.tikkie"),
-    ("Thuisbezorgd",        "com.takeaway.android.nl"),
+    ("Thuisbezorgd",        "com.thuisbezorgd.consumerapp"),
     ("Marktplaats",         "com.marktplaats.marktplaats"),
     ("Easypark NL",         "net.easypark.android"),
     ("Pathe",               "nl.pathe.mobile"),
@@ -139,7 +139,7 @@ for i, (name, package) in enumerate(APPS, 1):
     print(f"          Tap INSTALL on your phone.")
     print(f"          (Auto-advances when done | ENTER = skip)")
 
-    timeout = 600   # 10 min max per app
+    timeout = 120   # 2 min max per app — press ENTER to skip anytime
     elapsed = 0
     result  = "timeout"
 
