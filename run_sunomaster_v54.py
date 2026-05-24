@@ -25,7 +25,7 @@ def run_pipeline(input_file, reference_file=None, output_dir=None, bpm=None):
     if output_dir is None:
         output_dir = r"E:\SunoMaster\output"
     if reference_file is None:
-        reference_file = "Guy J - Worlds Apart (Original Mix) Normalized -8 LUFS.wav"
+        reference_file = "# Guy J - Worlds Apart (Original Mix) Normalized -8 LUFS.wav"
     
     # Verify input exists
     input_path = Path(input_file)

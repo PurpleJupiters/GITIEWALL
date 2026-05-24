@@ -45,7 +45,7 @@ SR = 48000
 # Reference tracks are always normalized versions in this folder.
 # Pass --reference with just the filename, or override with a full path.
 DEFAULT_REF_FOLDER = r"E:\SunoMaster\references\normalized reference tracks"
-DEFAULT_REFERENCE  = r"E:\SunoMaster\references\normalized reference tracks\Guy J - Worlds Apart (Original Mix).wav"
+DEFAULT_REFERENCE  = r"E:\SunoMaster\references\normalized reference tracks\# Guy J - Worlds Apart (Original Mix) Normalized -8 LUFS.wav"
 
 MAX_EQ_DB     = 3.0    # Hard cap on any single EQ correction
 MAX_STEM_GAIN = 6.0    # Never boost a stem more than 6dB
@@ -1624,7 +1624,7 @@ def main():
             vpk = max(float(np.max(np.abs(vL))), float(np.max(np.abs(vR))))
             if vpk > 0: sc = np.float32(10**(-1.0/20)/vpk); vL*=sc; vR*=sc
             # Save to desktop (resolved dynamically — works on any user account)
-            vdesk = Path.home() / "Desktop" / "Latest Mastered Songs"
+            vdesk = Path.home() / "Desktop" / "MUSIC OUTPUT" / "Latest Mastered Songs"
             vdesk.mkdir(parents=True, exist_ok=True)
             vdest = vdesk / "Transfinite_vocals.wav"
             replaced_v = vdest.exists()
@@ -1638,7 +1638,7 @@ def main():
     # ── DESKTOP DELIVERY ─────────────────────────────────────────────────────────
     # Copy the final master to the desktop folder using the original song filename.
     # Overwrites any older version of the same song automatically.
-    desktop_folder = Path.home() / "Desktop" / "Latest Mastered Songs"
+    desktop_folder = Path.home() / "Desktop" / "MUSIC OUTPUT" / "Latest Mastered Songs"
     try:
         desktop_folder.mkdir(parents=True, exist_ok=True)
         dest = desktop_folder / f"{name}_master_v5.4.wav"
