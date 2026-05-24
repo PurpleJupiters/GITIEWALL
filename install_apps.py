@@ -55,15 +55,21 @@ APPS = [
 ]
 
 def is_installed(pkg):
-    r = subprocess.run(["adb", "-s", DEVICE, "shell", "pm", "list", "packages", pkg],
-                       capture_output=True, text=True)
-    return pkg in r.stdout
+    try:
+        r = subprocess.run(["adb", "-s", DEVICE, "shell", "pm", "list", "packages", pkg],
+                           capture_output=True, text=True, timeout=8)
+        return pkg in r.stdout
+    except Exception:
+        return False
 
 def open_store(pkg):
-    subprocess.run(["adb", "-s", DEVICE, "shell", "am", "start",
-                    "-a", "android.intent.action.VIEW",
-                    "-d", f"market://details?id={pkg}"],
-                   capture_output=True)
+    try:
+        subprocess.run(["adb", "-s", DEVICE, "shell", "am", "start",
+                        "-a", "android.intent.action.VIEW",
+                        "-d", f"market://details?id={pkg}"],
+                       capture_output=True, timeout=8)
+    except Exception:
+        pass
 
 def flush_keys():
     while msvcrt.kbhit():
