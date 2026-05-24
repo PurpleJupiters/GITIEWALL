@@ -1416,6 +1416,252 @@ def process_ai_vocals(L, R, sr=SR):
     return L, R
 
 
+# ─── GUIDE FILE GENERATION ─────────────────────────────────────────────────────
+# Produces a package of 4 reference files alongside the vocal stem export.
+# These guide Audimee (or any vocal AI renderer) to sing in time, at the right
+# pitch, and with the right dynamics — then the clean vocal drops back into
+# the pipeline via --vocal for a full professional re-master.
+
+def generate_click_track(bpm, duration_s, sr=SR):
+    """
+    Stereo click track at detected BPM.
+    Beat 1 of every bar: 1000 Hz sine burst at 0.9 amplitude (downbeat).
+    Beats 2-4: 750 Hz sine burst at 0.5 amplitude.
+    8 ms burst with natural exponential decay — sounds like a studio click.
+    """
+    n_samples = int(duration_s * sr) + sr
+    click = np.zeros(n_samples, dtype=np.float32)
+    burst_len = int(0.008 * sr)
+    t_b = np.linspace(0.0, 1.0, burst_len)
+    downbeat  = (np.sin(2*np.pi*1000*t_b) * np.exp(-t_b*15) * 0.90).astype(np.float32)
+    beatclick = (np.sin(2*np.pi*750 *t_b) * np.exp(-t_b*15) * 0.50).astype(np.float32)
+    beat_samps = sr * 60.0 / bpm
+    beat_num = 0; pos = 0.0
+    while int(pos) < n_samples - burst_len:
+        s = int(pos)
+        wave = downbeat if beat_num % 4 == 0 else beatclick
+        click[s:s+burst_len] += wave
+        pos += beat_samps; beat_num += 1
+    click = np.clip(click, -1.0, 1.0)
+    return np.stack([click, click], axis=1).astype(np.float32)
+
+
+def generate_kick_pulse(drums_L, drums_R, sr=SR):
+    """
+    Extract real kick drum transients from the drums stem and render them as
+    sharp audio pulses — a musical groove guide instead of a rigid metronome.
+    Bandpass 40-120 Hz isolates the kick body; envelope follower + peak-pick
+    finds each hit; 10 ms Gaussian pulse marks it cleanly.
+    """
+    mono = ((drums_L.astype(np.float64) + drums_R.astype(np.float64)) * 0.5)
+    sos  = sp.butter(4, [40/(sr/2), min(120/(sr/2), 0.999)], 'band', output='sos')
+    kick_band = np.abs(sp.sosfiltfilt(sos, mono))
+    att = np.exp(-1.0 / (0.003 * sr)); rel = np.exp(-1.0 / (0.080 * sr))
+    env = np.zeros_like(kick_band)
+    for i in range(1, len(kick_band)):
+        c = att if kick_band[i] > env[i-1] else rel
+        env[i] = c * env[i-1] + (1-c) * kick_band[i]
+    thresh   = float(np.percentile(env[env>0], 60)) if np.any(env>0) else 0.01
+    min_dist = max(1, int(sr * 0.06))   # 60 ms minimum between kicks
+    peaks, _ = find_peaks(env, height=thresh, distance=min_dist)
+    pulse = np.zeros(len(mono), dtype=np.float32)
+    burst = int(0.010 * sr)
+    t_p   = np.linspace(-3, 3, burst)
+    shape = (np.exp(-0.5 * t_p**2) * 0.85).astype(np.float32)
+    for pk in peaks:
+        s = max(0, pk - burst//2); e = min(len(pulse), s+burst)
+        pulse[s:e] = np.maximum(pulse[s:e], shape[:e-s])
+    print(f"    [GUIDE] Kick pulse: {len(peaks)} hits detected")
+    return np.stack([pulse, pulse], axis=1).astype(np.float32)
+
+
+def generate_vocal_envelope(vocal_L, vocal_R, sr=SR):
+    """
+    Dynamics guide: a 220 Hz tone modulated by the vocal amplitude envelope.
+    When played, the listener hears exactly when and how loud the vocals should
+    be — phrasing, breath positions, swells. Helps Audimee match dynamics.
+    """
+    mono = ((vocal_L.astype(np.float64) + vocal_R.astype(np.float64)) * 0.5)
+    win  = max(1, int(sr * 0.050))                         # 50 ms RMS window
+    env  = np.sqrt(np.maximum(np.convolve(mono**2, np.ones(win)/win, mode='same'), 0.0))
+    sos_sm = sp.butter(2, 10/(sr/2), 'lp', output='sos')
+    env  = sp.sosfiltfilt(sos_sm, env)                     # extra smoothing
+    env_max = float(np.max(env))
+    if env_max > 0: env = (env / env_max).astype(np.float32)
+    t    = np.arange(len(env), dtype=np.float64) / sr
+    tone = (np.sin(2*np.pi*220*t) * env * 0.70).astype(np.float32)
+    return np.stack([tone, tone], axis=1).astype(np.float32)
+
+
+def _write_midi_file(path, notes, bpm, ticks_per_beat=480):
+    """
+    Write a minimal Type-0 MIDI file without any external library.
+    notes: list of (start_s, duration_s, midi_note 0-127, velocity 0-127)
+    """
+    import struct
+    def var_len(n):
+        n = max(0, int(n))
+        buf = [n & 0x7F]; n >>= 7
+        while n: buf.insert(0, (n & 0x7F) | 0x80); n >>= 7
+        return bytes(buf)
+    uspb   = int(60_000_000 / max(bpm, 1))
+    events = [(0, bytes([0xFF, 0x51, 0x03]) + struct.pack('>I', uspb)[1:])]
+    for start_s, dur_s, note, vel in notes:
+        if not (0 <= note <= 127 and dur_s > 0.01): continue
+        note = int(np.clip(note, 0, 127)); vel = int(np.clip(vel, 1, 127))
+        st = int(start_s * bpm / 60.0 * ticks_per_beat)
+        et = int((start_s + dur_s) * bpm / 60.0 * ticks_per_beat)
+        events.append((st, bytes([0x90, note, vel])))
+        events.append((et, bytes([0x80, note, 0])))
+    events.sort(key=lambda x: x[0])
+    track_data = b''; cur = 0
+    for tick, data in events:
+        track_data += var_len(tick - cur) + data; cur = tick
+    track_data += var_len(0) + bytes([0xFF, 0x2F, 0x00])
+    header = b'MThd' + struct.pack('>I', 6) + struct.pack('>HHH', 0, 1, ticks_per_beat)
+    track  = b'MTrk' + struct.pack('>I', len(track_data)) + track_data
+    with open(str(path), 'wb') as f: f.write(header + track)
+
+
+def generate_melody_midi(vocal_L, vocal_R, bpm, sr=SR, path=None):
+    """
+    Detect the vocal melody with librosa pyin and export as a MIDI file.
+    Each detected phrase becomes a MIDI note with velocity from local RMS.
+    Audimee (or a human vocalist) can use this as a melody guide.
+    """
+    mono = ((vocal_L.astype(np.float64) + vocal_R.astype(np.float64)) * 0.5).astype(np.float32)
+    try:
+        f0, voiced, _ = librosa.pyin(
+            mono, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C6'),
+            sr=sr, hop_length=512)
+    except Exception as ex:
+        print(f"    [GUIDE] MIDI pitch detection failed: {ex}"); return
+    hop_s = 512.0 / sr
+    notes = []; i = 0
+    while i < len(f0):
+        if voiced[i] and f0[i] is not None and not np.isnan(f0[i]):
+            start_s = i * hop_s
+            ref_midi = int(np.round(librosa.hz_to_midi(f0[i])))
+            j = i + 1
+            while j < len(f0) and voiced[j] and not np.isnan(f0[j]):
+                if abs(int(np.round(librosa.hz_to_midi(f0[j]))) - ref_midi) > 2: break
+                j += 1
+            seg_f0 = [f0[k] for k in range(i, j) if not np.isnan(f0[k])]
+            if seg_f0:
+                avg_midi = int(np.round(librosa.hz_to_midi(float(np.mean(seg_f0)))))
+                dur_s    = (j - i) * hop_s
+                if dur_s >= 0.05:
+                    s_samp = int(start_s * sr); e_samp = int((start_s + dur_s) * sr)
+                    seg_rms = float(np.sqrt(np.mean(mono[s_samp:e_samp]**2) + 1e-12))
+                    vel = int(np.clip(20*np.log10(seg_rms+1e-12) + 100, 30, 120))
+                    notes.append((start_s, dur_s, avg_midi, vel))
+            i = j
+        else:
+            i += 1
+    if path and notes:
+        _write_midi_file(path, notes, bpm)
+        print(f"    [GUIDE] MIDI: {len(notes)} notes -> {Path(path).name}")
+    elif not notes:
+        print(f"    [GUIDE] MIDI: no pitched notes detected")
+
+
+def generate_guide_files(bpm, duration_s, drums_L, drums_R,
+                         vocal_L, vocal_R, output_dir, song_name, sr=SR):
+    """
+    Orchestrate all 4 Audimee guide files and save them.
+    All files are time-locked to sample 0 of the master track.
+    Returns dict of output paths.
+    """
+    out = Path(output_dir); out.mkdir(parents=True, exist_ok=True)
+    print(f"\n[GUIDE FILES] Building Audimee guide package for: {song_name}")
+    target_n = int(duration_s * sr)
+
+    def _fit(arr2d):
+        n = len(arr2d)
+        if n > target_n:   return arr2d[:target_n]
+        if n < target_n:   return np.pad(arr2d, ((0, target_n-n), (0,0)))
+        return arr2d
+
+    # 1. Click
+    click = _fit(generate_click_track(bpm, duration_s, sr))
+    p_click = out / f"{song_name}_click_{bpm:.1f}bpm.wav"
+    sf.write(str(p_click), click, sr, subtype='PCM_24')
+    print(f"  [GUIDE] 1/4  Click track     -> {p_click.name}")
+
+    # 2. Kick pulse
+    pulse = _fit(generate_kick_pulse(drums_L, drums_R, sr))
+    p_pulse = out / f"{song_name}_kick_pulse.wav"
+    sf.write(str(p_pulse), pulse, sr, subtype='PCM_24')
+    print(f"  [GUIDE] 2/4  Kick pulse      -> {p_pulse.name}")
+
+    # 3. Vocal envelope
+    env_a = _fit(generate_vocal_envelope(vocal_L, vocal_R, sr))
+    p_env = out / f"{song_name}_vocal_envelope.wav"
+    sf.write(str(p_env), env_a, sr, subtype='PCM_24')
+    print(f"  [GUIDE] 3/4  Vocal envelope  -> {p_env.name}")
+
+    # 4. MIDI melody
+    p_midi = out / f"{song_name}_melody.mid"
+    generate_melody_midi(vocal_L, vocal_R, bpm, sr, path=p_midi)
+    print(f"  [GUIDE] 4/4  Melody MIDI     -> {p_midi.name}")
+
+    print(f"  [GUIDE] Package complete -> {out}")
+    return {'click': str(p_click), 'kick_pulse': str(p_pulse),
+            'envelope': str(p_env), 'midi': str(p_midi)}
+
+
+# ─── VOCAL INJECTION & ALIGNMENT ───────────────────────────────────────────────
+
+def auto_align_vocal(new_L, new_R, ref_L, ref_R, sr=SR, max_offset_s=5.0):
+    """
+    Align an externally-sourced vocal (e.g. rendered by Audimee) to the
+    reference Demucs vocal stem using amplitude-envelope cross-correlation.
+
+    Steps:
+      1. Compute 100 ms RMS envelopes of both signals
+      2. Cross-correlate within ±max_offset_s window
+      3. Find the lag with peak absolute correlation
+      4. Shift the new vocal by that offset
+      5. Report quality score (0-1; >0.5 = good alignment)
+
+    Returns: (aligned_L, aligned_R, offset_ms, score)
+    """
+    def _env(L, R):
+        mono = ((L.astype(np.float64) + R.astype(np.float64)) * 0.5)
+        win  = max(1, int(sr * 0.100))
+        return np.sqrt(np.maximum(np.convolve(mono**2, np.ones(win)/win, mode='same'), 0.0))
+
+    env_new = _env(new_L, new_R)
+    env_ref = _env(ref_L, ref_R)
+    N = min(len(env_new), len(env_ref))
+    a = env_new[:N]; b = env_ref[:N]
+    max_lag = min(int(max_offset_s * sr), N // 4)
+
+    corr   = np.correlate(a - a.mean(), b - b.mean(), mode='full')
+    center = len(corr) // 2
+    window = corr[center - max_lag : center + max_lag + 1]
+    best_lag = int(np.argmax(np.abs(window))) - max_lag
+    offset_ms = best_lag / sr * 1000.0
+    norm  = float(np.std(a) * np.std(b) * N)
+    score = float(np.clip(corr[center + best_lag] / norm, 0.0, 1.0)) if norm > 1e-10 else 0.0
+
+    pad0 = np.zeros(abs(best_lag), dtype=np.float32)
+    if best_lag > 0:
+        aL = np.concatenate([pad0, new_L])[:len(ref_L)]
+        aR = np.concatenate([pad0, new_R])[:len(ref_R)]
+    elif best_lag < 0:
+        trim = abs(best_lag)
+        pad_n = max(0, len(ref_L) - (len(new_L) - trim))
+        aL = np.concatenate([new_L[trim:], np.zeros(pad_n, np.float32)])[:len(ref_L)]
+        aR = np.concatenate([new_R[trim:], np.zeros(pad_n, np.float32)])[:len(ref_R)]
+    else:
+        aL, aR = new_L.copy(), new_R.copy()
+
+    status = 'GOOD' if score > 0.5 else 'POOR — check manually'
+    print(f"  [ALIGN] Offset {offset_ms:+.1f}ms  Score {score:.3f}  [{status}]")
+    return aL.astype(np.float32), aR.astype(np.float32), offset_ms, score
+
+
 # ─── SAFETY FUNCTIONS ──────────────────────────────────────────────────────────
 
 def clean_slate(song_out_dir, song_name):
@@ -1465,6 +1711,12 @@ def main():
                              'If only a filename is given, looks in the default folder.')
     parser.add_argument('--output',    required=True, help='Output folder')
     parser.add_argument('--bpm',       type=float, default=None)
+    parser.add_argument('--vocal',     default=None,
+                        help='External vocal WAV (e.g. from Audimee) to inject, '
+                             'replacing the Demucs vocal stem. Auto-aligned before use.')
+    parser.add_argument('--reuse-stems', action='store_true',
+                        help='Skip Demucs + P0/P1 and reuse stems from the previous run. '
+                             'Use with --vocal for fast re-masters (~2 min instead of 10).')
     args = parser.parse_args()
 
     src  = Path(args.input);  out = Path(args.output)
@@ -1474,8 +1726,11 @@ def main():
     # Safety checks — run before touching anything
     verify_input_readonly(src, out)
 
-    # Clean slate — delete all previous output for this song
-    clean_slate(song_out, name)
+    # Clean slate — skip if reusing stems from previous run
+    if args.reuse_stems and song_out.exists():
+        print(f"  [REUSE STEMS] Keeping existing stems for: {name}")
+    else:
+        clean_slate(song_out, name)
 
     stems_dir  = song_out / 'demucs_stems'
     p0_dir     = song_out / 'P0_stems'
