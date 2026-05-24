@@ -43,7 +43,8 @@
       "mcp__Claude_in_Chrome__computer",
       "mcp__Claude_in_Chrome__find",
       "mcp__Claude_in_Chrome__tabs_create_mcp",
-      "PowerShell(Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"cd 'E:\\\\SunoMaster\\\\scripts'; python install_apps.py\")"
+      "PowerShell(Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"cd 'E:\\\\SunoMaster\\\\scripts'; python install_apps.py\")",
+      "Bash(mkdir -p \"C:\\\\Users\\\\equat\\\\Desktop\\\\MUSIC OUTPUT\\\\Latest Mastered Songs\\\\AUDIMEE VOCAL DOWNLOADS\" 2>/dev/null; echo \"Folder created\")"
     ]
   },
   "enableAllProjectMcpServers": true,
