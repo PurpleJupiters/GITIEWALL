@@ -9,13 +9,9 @@ import subprocess, time, sys, threading
 DEVICE = "AE6RUT4531003110"
 
 APPS = [
-    # AI & Productivity
-    ("Claude",              "com.anthropic.claude"),
-    ("Perplexity",          "ai.perplexity.app.android"),
-    ("ElevenLabs",          "io.elevenlabs.app"),
+    # AI & Productivity  (Claude + Perplexity + OneDrive + Copilot already installed)
+    ("ElevenLabs",          "io.elevenlabs.elevenlabs"),
     ("Notion",              "notion.id"),
-    ("OneDrive",            "com.microsoft.skydrive"),
-    ("M365 Copilot",        "com.microsoft.copilot"),
     ("Microsoft Word",      "com.microsoft.office.word"),
     ("Replit",              "com.replit.app"),
     ("Kimi",                "com.moonshot.kimi"),
@@ -26,15 +22,14 @@ APPS = [
     ("BandLab",             "com.bandlab.bandlab"),
     ("Bandsintown",         "com.bandsintown"),
     ("n-Track Studio",      "com.ntrack.studio"),
-    ("Moises",              "com.moises.app"),
+    ("Moises",              "com.moises.moises"),
     ("Perfect Ear",         "com.evilduck.musiciankit"),
     ("Sing Sharp",          "com.singsharp.app"),
     ("Vampr",               "com.vampr.vampr"),
     ("Sonos",               "com.sonos.acr"),
     ("Bose Connect",        "com.bose.boseconnect"),
-    ("NetEase Music",       "com.netease.cloudmusic"),
-    ("Nyx Music Player",    "com.awedea.nyx"),
     ("Chordify",            "com.chordify.chordify"),
+    ("Nyx Music Player",    "com.awedea.nyx"),
 
     # Social & Communication
     ("Signal",              "org.thoughtcrime.securesms"),
@@ -54,11 +49,9 @@ APPS = [
     ("Edits (Meta)",        "com.instagram.edits"),
     ("Pexels",              "com.pexels.pexels"),
     ("Vimeo",               "com.vimeo.networking"),
-    ("Photo & Picture Resizer", "com.photo.resize.compress"),
 
     # Streaming & News
     ("Prime Video",         "com.amazon.avod.thirdpartyclient"),
-    ("DStv Stream",         "com.dstv.stream"),
     ("NOS",                 "nl.nos.android"),
     ("NPO Start",           "nl.uitzendinggemist"),
     ("Ziggo GO",            "nl.ziggo.tv"),
@@ -136,8 +129,8 @@ for i, (name, package) in enumerate(APPS, 1):
     skip_flag.clear()
     print(f"\n[{i:02d}/{total}] ▶  Opening Play Store → {name}")
     open_playstore(package)
-    print(f"          Tap INSTALL on your phone.")
-    print(f"          (Auto-advances when done | ENTER = skip)")
+    print(f"          👉 Tap INSTALL on your phone.")
+    print(f"          ⚠️  If Play Store shows 'verwijderd' or error → press ENTER to skip")
 
     timeout = 120   # 2 min max per app — press ENTER to skip anytime
     elapsed = 0
