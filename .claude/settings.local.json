@@ -35,7 +35,8 @@
       "WebFetch(domain:on.soundcloud.com)",
       "WebFetch(domain:soundcloud.com)",
       "mcp__Claude_in_Chrome__navigate",
-      "mcp__Claude_in_Chrome__javascript_tool"
+      "mcp__Claude_in_Chrome__javascript_tool",
+      "mcp__Claude_in_Chrome__read_network_requests"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1267,13 +1267,23 @@ def vocal_despike(L, R, sr=SR, window_ms=20, spike_ratio_db=12.0):
     return Ld, Rd
 
 
-def vocal_compress(L, R, sr=SR, threshold_db=-26.0, ratio=3.0,
-                   attack_ms=20.0, release_ms=100.0, makeup_db=3.0):
+def vocal_compress(L, R, sr=SR, threshold_db=-32.0, ratio=4.0,
+                   attack_ms=5.0, release_ms=80.0, makeup_db=6.0):
     """
-    Optical-style vocal compressor to tame crest factor.
-    Target: bring crest from 22+ dB down to the 12-18 dB professional range.
-    Gentle attack (20ms) lets vocal transients pass — ratio 3:1 is transparent.
-    Makeup gain partially restores lost level (apply LUFS targeting in mix anyway).
+    Vocal compressor to tame crest factor from 22dB down to 12-18dB range.
+
+    Key design decisions (v2 — fixed after first attempt backfired):
+      - threshold_db=-32: sits 4-6dB BELOW the voiced-section RMS so the
+        compressor genuinely engages on all voiced content, not just peaks.
+        Previous -26dB was above much of the voiced RMS, leaving it untouched.
+      - attack_ms=5: fast enough to catch peaks before they escape.
+        Previous 20ms let ALL transients pass unattenuated → RMS dropped
+        faster than peaks → crest went UP (opposite of intended).
+      - ratio=4:1: firm enough to bring down peaks meaningfully.
+      - makeup_db=6: restores average level lost through GR.
+
+    The compressor measures RMS only on voiced frames (>-55dBFS) for the
+    threshold, so long silences don't drag down the envelope and fool it.
     """
     def _comp(y):
         y64     = y.astype(np.float64)
