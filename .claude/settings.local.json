@@ -36,7 +36,8 @@
       "WebFetch(domain:soundcloud.com)",
       "mcp__Claude_in_Chrome__navigate",
       "mcp__Claude_in_Chrome__javascript_tool",
-      "mcp__Claude_in_Chrome__read_network_requests"
+      "mcp__Claude_in_Chrome__read_network_requests",
+      "Bash(cd /mnt/e/SunoMaster/scripts && python soundcloud_unfollow.py 2>&1 | head -20)"
     ]
   },
   "enableAllProjectMcpServers": true,
