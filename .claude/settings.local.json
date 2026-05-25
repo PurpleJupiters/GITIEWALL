@@ -56,7 +56,11 @@
       "Bash([ -f \"$LOG\" ])",
       "Bash([ -s \"$LOG\" ])",
       "Bash(winget install *)",
-      "Bash(winget search *)"
+      "Bash(winget search *)",
+      "Bash(Start-Process \"https://account.microsoft.com/security\")",
+      "Bash(Start-Process \"2FAGuard\")",
+      "PowerShell(Start-Process \"https://account.microsoft.com/security\")",
+      "PowerShell(Start-Process \"2FAGuard\")"
     ]
   },
   "enableAllProjectMcpServers": true,
