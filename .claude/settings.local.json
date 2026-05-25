@@ -48,7 +48,11 @@
       "WebFetch(domain:audimee.com)",
       "Bash(C:\\\\Dev\\\\envs\\\\sunomaster\\\\python.exe -m pip install playwright --quiet)",
       "Bash(cmd.exe /c \"C:\\\\Dev\\\\envs\\\\sunomaster\\\\python.exe -m pip install playwright 2>&1\")",
-      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\equat\\\\Desktop\\\\MUSIC OUTPUT\\\\Latest Mastered Songs\\\\AUDIMEE VOCAL DOWNLOADS\" -Recurse | ForEach-Object { $_.FullName.Substring\\(0, [Math]::Min\\($_.FullName.Length, 150\\)\\) })"
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\equat\\\\Desktop\\\\MUSIC OUTPUT\\\\Latest Mastered Songs\\\\AUDIMEE VOCAL DOWNLOADS\" -Recurse | ForEach-Object { $_.FullName.Substring\\(0, [Math]::Min\\($_.FullName.Length, 150\\)\\) })",
+      "Bash([ -f \"$OUTPUT\" ])",
+      "Bash([ -s \"$OUTPUT\" ])",
+      "Bash(sleep 2)",
+      "Bash(tail -f C:/Users/equat/AppData/Local/Temp/claude/E--SunoMaster-scripts/37a76293-a7f2-44c5-b5c5-5d079946d22c/tasks/bvjh1vxd7.output)"
     ]
   },
   "enableAllProjectMcpServers": true,
