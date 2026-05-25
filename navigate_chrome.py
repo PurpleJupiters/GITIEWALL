@@ -1,29 +1,26 @@
-import ctypes, time, sys
+import ctypes, time
 from ctypes import wintypes
 import pyautogui
+import subprocess
 
 pyautogui.FAILSAFE = False
-
 user32 = ctypes.windll.user32
 
-# Give time for this process to become independent before acting
-time.sleep(4)
+time.sleep(3)
 
-# Disable Windows foreground lock timeout
 SPI_SETFOREGROUNDLOCKTIMEOUT = 0x2001
 user32.SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, 0, 0x02)
 
-# Find Chrome window
+# Find Chrome window by class name
 hwnd = None
 def enum_cb(h, l):
     global hwnd
-    buf = ctypes.create_unicode_buffer(512)
-    user32.GetWindowTextW(h, buf, 512)
-    title = buf.value
-    if user32.IsWindowVisible(h) and len(title) > 3:
-        cls = ctypes.create_unicode_buffer(256)
-        user32.GetClassNameW(h, cls, 256)
-        if "Chrome_WidgetWin" in cls.value:
+    cls = ctypes.create_unicode_buffer(256)
+    user32.GetClassNameW(h, cls, 256)
+    if "Chrome_WidgetWin_1" == cls.value and user32.IsWindowVisible(h):
+        buf = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(h, buf, 512)
+        if len(buf.value) > 0:
             hwnd = h
     return True
 
@@ -31,7 +28,14 @@ WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
 user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
 
 if hwnd:
-    # Force Chrome to front from this independent process
+    # Get Chrome window rect to find address bar coordinates
+    class RECT(ctypes.Structure):
+        _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                    ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+    rect = RECT()
+    user32.GetWindowRect(hwnd, ctypes.byref(rect))
+
+    # Restore and force to front
     fg = user32.GetForegroundWindow()
     fg_tid = user32.GetWindowThreadProcessId(fg, None)
     ch_tid = user32.GetWindowThreadProcessId(hwnd, None)
@@ -42,16 +46,17 @@ if hwnd:
     user32.AttachThreadInput(fg_tid, ch_tid, False)
     time.sleep(1.5)
 
-    pyautogui.hotkey('ctrl', 'l')
-    time.sleep(0.6)
+    # Click address bar: ~center-x of window, ~65px from top of window
+    addr_x = (rect.left + rect.right) // 2
+    addr_y = rect.top + 65
+    pyautogui.click(addr_x, addr_y)
+    time.sleep(0.5)
     pyautogui.hotkey('ctrl', 'a')
     time.sleep(0.3)
     pyautogui.write('https://account.microsoft.com/security', interval=0.05)
     pyautogui.press('enter')
     time.sleep(8)
 
-# Screenshot to confirm
-import subprocess
 subprocess.run([
     'powershell', '-Command',
     'Add-Type -AssemblyName System.Windows.Forms,System.Drawing;'
