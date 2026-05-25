@@ -1842,20 +1842,78 @@ def main():
         if vocal_path.exists():
             print(f"\n[VOCAL INJECT] Loading: {vocal_path.name}")
             vd, vsr = sf.read(str(vocal_path), dtype='float32', always_2d=True)
-            vL_ext, vR_ext = vd[:,0].copy(), vd[:,1].copy(); del vd; gc.collect()
+
+            # ── Handle mono Audimee output (Audimee always exports mono) ──────
+            if vd.ndim == 1 or vd.shape[1] == 1:
+                mono_ch = vd[:,0] if vd.ndim == 2 else vd
+                vL_ext = mono_ch.copy()
+                vR_ext = mono_ch.copy()
+                print(f"  [VOCAL INJECT] Mono input — duplicated to stereo")
+            else:
+                vL_ext, vR_ext = vd[:,0].copy(), vd[:,1].copy()
+            del vd; gc.collect()
+
+            # ── Resample to pipeline SR (48kHz) ────────────────────────────
             if vsr != SR:
+                print(f"  [VOCAL INJECT] Resampling {vsr}Hz -> {SR}Hz")
                 vL_ext = librosa.resample(vL_ext.astype(np.float64), orig_sr=vsr, target_sr=SR).astype(np.float32)
                 vR_ext = librosa.resample(vR_ext.astype(np.float64), orig_sr=vsr, target_sr=SR).astype(np.float32)
-            # Auto-align to Demucs reference vocal
+
+            # ── Spectral centroid diagnostic ────────────────────────────────
+            _mono_v = ((vL_ext + vR_ext) * 0.5).astype(np.float64)
+            _seg    = _mono_v[:SR * 5] if len(_mono_v) > SR * 5 else _mono_v
+            _fft    = np.abs(np.fft.rfft(_seg))
+            _freqs  = np.fft.rfftfreq(len(_seg), 1.0 / SR)
+            centroid_hz = float(np.sum(_freqs * _fft) / (np.sum(_fft) + 1e-9))
+            print(f"  [VOCAL INJECT] Spectral centroid: {centroid_hz:.0f} Hz")
+
+            # ── Spectral tilt correction for Audimee brightness artifacts ──
+            # Audimee voice conversion on Demucs stems typically raises the
+            # spectral centroid by 1.5-2× (tested: 1522 Hz -> 3528 Hz).
+            # Apply a corrective shelf EQ when centroid exceeds 2500 Hz:
+            #   High shelf: -7 dB at 3.5 kHz  (cut harsh upper-mids / air)
+            #   Low shelf:  +3 dB at 350 Hz    (restore body/warmth)
+            if centroid_hz > 2500.0:
+                print(f"  [VOCAL INJECT] Centroid {centroid_hz:.0f}Hz > 2500Hz — applying tilt correction...")
+                # High-shelf cut: output = signal + (gain-1)*HP(signal)
+                hs_gain = 10 ** (-7.0 / 20.0)   # -7 dB
+                w_hs    = min(0.999, 3500.0 / (SR / 2.0))
+                sos_hs  = sp.butter(4, w_hs, btype='high', output='sos')
+                for _ch in (vL_ext, vR_ext):
+                    pass  # process below
+                _hp_L = sp.sosfiltfilt(sos_hs, vL_ext.astype(np.float64)).astype(np.float32)
+                _hp_R = sp.sosfiltfilt(sos_hs, vR_ext.astype(np.float64)).astype(np.float32)
+                vL_ext = (vL_ext + (hs_gain - 1.0) * _hp_L).astype(np.float32)
+                vR_ext = (vR_ext + (hs_gain - 1.0) * _hp_R).astype(np.float32)
+                # Low-shelf boost: output = signal + (gain-1)*LP(signal)
+                ls_gain = 10 ** (3.0 / 20.0)    # +3 dB
+                w_ls    = min(0.999, 350.0 / (SR / 2.0))
+                sos_ls  = sp.butter(4, w_ls, btype='low', output='sos')
+                _lp_L   = sp.sosfiltfilt(sos_ls, vL_ext.astype(np.float64)).astype(np.float32)
+                _lp_R   = sp.sosfiltfilt(sos_ls, vR_ext.astype(np.float64)).astype(np.float32)
+                vL_ext  = (vL_ext + (ls_gain - 1.0) * _lp_L).astype(np.float32)
+                vR_ext  = (vR_ext + (ls_gain - 1.0) * _lp_R).astype(np.float32)
+                # Log new centroid
+                _mono2  = ((vL_ext + vR_ext) * 0.5).astype(np.float64)
+                _seg2   = _mono2[:SR * 5] if len(_mono2) > SR * 5 else _mono2
+                _fft2   = np.abs(np.fft.rfft(_seg2))
+                c2      = float(np.sum(_freqs[:len(_fft2)] * _fft2) / (np.sum(_fft2) + 1e-9))
+                print(f"  [VOCAL INJECT] Centroid after correction: {c2:.0f} Hz")
+                del _hp_L, _hp_R, _lp_L, _lp_R, _mono2, _seg2, _fft2
+
+            del _mono_v, _seg, _fft, _freqs; gc.collect()
+
+            # ── Auto-align to Demucs reference vocal ───────────────────────
             if 'vocals' in processed:
                 ref_vL, ref_vR = processed['vocals']
                 vL_ext, vR_ext, off_ms, score = auto_align_vocal(vL_ext, vR_ext, ref_vL, ref_vR, SR)
-                if score < 0.3:
-                    print(f"  [ALIGN] WARNING: low score ({score:.2f}) — vocal may be out of sync. Proceeding anyway.")
-            # Apply full P1 vocal chain to the clean Audimee vocal
+                print(f"  [ALIGN] Offset={off_ms:.1f}ms  Score={score:.2f}" +
+                      ("  [OK]" if score >= 0.3 else "  [WARN: low correlation — may be out of sync]"))
+
+            # ── Apply full P1 vocal chain to the corrected Audimee vocal ───
             vL_ext, vR_ext = process_ai_vocals(vL_ext, vR_ext, SR)
             processed['vocals'] = (vL_ext, vR_ext)
-            print(f"  [VOCAL INJECT] Demucs vocal replaced with Audimee vocal")
+            print(f"  [VOCAL INJECT] Demucs vocal replaced with Audimee/Hailey vocal")
         else:
             print(f"  [VOCAL INJECT] WARNING: file not found: {vocal_path} — using Demucs vocal")
 
