@@ -1894,6 +1894,41 @@ def main():
                 vL_ext = librosa.resample(vL_ext.astype(np.float64), orig_sr=vsr, target_sr=SR).astype(np.float32)
                 vR_ext = librosa.resample(vR_ext.astype(np.float64), orig_sr=vsr, target_sr=SR).astype(np.float32)
 
+            # ── Vocal envelope leveler (fix Audimee frame-level stuttering) ──
+            # Audimee voice conversion on Demucs-separated stems produces
+            # severe frame-level level discontinuities (174 jumps >15dB in 275s).
+            # This is caused by the imperfect Demucs vocal being noisy input.
+            # Fix: smooth the gain envelope so no 100ms block differs by >6dB
+            # from its neighbours — kills the stutter without crushing dynamics.
+            from scipy.ndimage import uniform_filter1d as _ufi1d
+            _lev_hop  = max(1, int(SR * 0.040))   # 40ms analysis blocks
+            _lev_mono = ((vL_ext.astype(np.float64) + vR_ext.astype(np.float64)) * 0.5)
+            _n_lev    = len(_lev_mono) // _lev_hop
+            _rms_lev  = np.array([float(np.sqrt(np.mean(
+                            _lev_mono[i*_lev_hop:(i+1)*_lev_hop]**2) + 1e-24))
+                         for i in range(_n_lev)], dtype=np.float64)
+            # Smooth envelope: 600ms window → remove frame-level jumps
+            _smooth_n = max(3, int(600 / 40))     # 600ms / 40ms = 15 blocks
+            _rms_sm   = _ufi1d(np.maximum(_rms_lev, 1e-12), size=_smooth_n, mode='nearest')
+            # Target: normalise to the smoothed envelope (ride the level, not kill it)
+            _floor    = max(float(np.percentile(_rms_lev[_rms_lev > 1e-10], 10)),
+                            10**(-45.0/20))        # noise floor guard
+            _gain_lev = np.clip(_rms_sm / np.maximum(_rms_lev, _floor),
+                                10**(-12.0/20), 10**(12.0/20))  # ±12dB clamp
+            # Where signal is near-silence, don't amplify (gate at -50dBFS)
+            _gate_mask = _rms_lev < 10**(-50.0/20)
+            _gain_lev[_gate_mask] = 1.0
+            # Upsample to sample-level with linear interp for smooth transitions
+            _blk_ctrs = (np.arange(_n_lev) + 0.5) * _lev_hop
+            _samp_idx = np.arange(len(vL_ext), dtype=np.float64)
+            _gain_full = np.interp(_samp_idx, _blk_ctrs, _gain_lev).astype(np.float32)
+            n_corrected = int(np.sum(np.abs(20*np.log10(_gain_lev+1e-12)) > 1.0))
+            vL_ext = (vL_ext * _gain_full).astype(np.float32)
+            vR_ext = (vR_ext * _gain_full).astype(np.float32)
+            print(f"  [VOCAL INJECT] Envelope leveler: {n_corrected}/{_n_lev} blocks adjusted (stutter fix)")
+            del _lev_mono, _rms_lev, _rms_sm, _gain_lev, _gain_full, _blk_ctrs, _samp_idx, _ufi1d
+            gc.collect()
+
             # ── Spectral centroid diagnostic ────────────────────────────────
             _mono_v = ((vL_ext + vR_ext) * 0.5).astype(np.float64)
             _seg    = _mono_v[:SR * 5] if len(_mono_v) > SR * 5 else _mono_v
@@ -1904,37 +1939,39 @@ def main():
 
             # ── Spectral tilt correction for Audimee brightness artifacts ──
             # Audimee voice conversion on Demucs stems typically raises the
-            # spectral centroid by 1.5-2× (tested: 1522 Hz -> 3528 Hz).
-            # Apply a corrective shelf EQ when centroid exceeds 2500 Hz:
-            #   High shelf: -7 dB at 3.5 kHz  (cut harsh upper-mids / air)
-            #   Low shelf:  +3 dB at 350 Hz    (restore body/warmth)
+            # spectral centroid by 1.5-2x (tested: 1522 Hz -> 3528 Hz).
+            # Apply corrective EQ when centroid exceeds 2500 Hz:
+            #   High shelf 1: -5 dB at 4.0 kHz  (cut presence harshness)
+            #   High shelf 2: -4 dB at 8.0 kHz  (cut air/sibilance)
+            # NOTE: Low-shelf boost removed — it was making the vocal muddy/honky
+            # by boosting the already-dominant 250-500Hz nasal region.
             if centroid_hz > 2500.0:
                 print(f"  [VOCAL INJECT] Centroid {centroid_hz:.0f}Hz > 2500Hz — applying tilt correction...")
-                # High-shelf cut: output = signal + (gain-1)*HP(signal)
-                hs_gain = 10 ** (-7.0 / 20.0)   # -7 dB
-                w_hs    = min(0.999, 3500.0 / (SR / 2.0))
-                sos_hs  = sp.butter(4, w_hs, btype='high', output='sos')
-                for _ch in (vL_ext, vR_ext):
-                    pass  # process below
-                _hp_L = sp.sosfiltfilt(sos_hs, vL_ext.astype(np.float64)).astype(np.float32)
-                _hp_R = sp.sosfiltfilt(sos_hs, vR_ext.astype(np.float64)).astype(np.float32)
-                vL_ext = (vL_ext + (hs_gain - 1.0) * _hp_L).astype(np.float32)
-                vR_ext = (vR_ext + (hs_gain - 1.0) * _hp_R).astype(np.float32)
-                # Low-shelf boost: output = signal + (gain-1)*LP(signal)
-                ls_gain = 10 ** (3.0 / 20.0)    # +3 dB
-                w_ls    = min(0.999, 350.0 / (SR / 2.0))
-                sos_ls  = sp.butter(4, w_ls, btype='low', output='sos')
-                _lp_L   = sp.sosfiltfilt(sos_ls, vL_ext.astype(np.float64)).astype(np.float32)
-                _lp_R   = sp.sosfiltfilt(sos_ls, vR_ext.astype(np.float64)).astype(np.float32)
-                vL_ext  = (vL_ext + (ls_gain - 1.0) * _lp_L).astype(np.float32)
-                vR_ext  = (vR_ext + (ls_gain - 1.0) * _lp_R).astype(np.float32)
+                # High-shelf 1: -5 dB at 4 kHz
+                hs1_gain = 10 ** (-5.0 / 20.0)
+                w_hs1    = min(0.999, 4000.0 / (SR / 2.0))
+                sos_hs1  = sp.butter(4, w_hs1, btype='high', output='sos')
+                _hp1_L   = sp.sosfiltfilt(sos_hs1, vL_ext.astype(np.float64)).astype(np.float32)
+                _hp1_R   = sp.sosfiltfilt(sos_hs1, vR_ext.astype(np.float64)).astype(np.float32)
+                vL_ext   = (vL_ext + (hs1_gain - 1.0) * _hp1_L).astype(np.float32)
+                vR_ext   = (vR_ext + (hs1_gain - 1.0) * _hp1_R).astype(np.float32)
+                del _hp1_L, _hp1_R
+                # High-shelf 2: -4 dB at 8 kHz
+                hs2_gain = 10 ** (-4.0 / 20.0)
+                w_hs2    = min(0.999, 8000.0 / (SR / 2.0))
+                sos_hs2  = sp.butter(4, w_hs2, btype='high', output='sos')
+                _hp2_L   = sp.sosfiltfilt(sos_hs2, vL_ext.astype(np.float64)).astype(np.float32)
+                _hp2_R   = sp.sosfiltfilt(sos_hs2, vR_ext.astype(np.float64)).astype(np.float32)
+                vL_ext   = (vL_ext + (hs2_gain - 1.0) * _hp2_L).astype(np.float32)
+                vR_ext   = (vR_ext + (hs2_gain - 1.0) * _hp2_R).astype(np.float32)
+                del _hp2_L, _hp2_R
                 # Log new centroid
                 _mono2  = ((vL_ext + vR_ext) * 0.5).astype(np.float64)
                 _seg2   = _mono2[:SR * 5] if len(_mono2) > SR * 5 else _mono2
                 _fft2   = np.abs(np.fft.rfft(_seg2))
                 c2      = float(np.sum(_freqs[:len(_fft2)] * _fft2) / (np.sum(_fft2) + 1e-9))
                 print(f"  [VOCAL INJECT] Centroid after correction: {c2:.0f} Hz")
-                del _hp_L, _hp_R, _lp_L, _lp_R, _mono2, _seg2, _fft2
+                del _mono2, _seg2, _fft2
 
             del _mono_v, _seg, _fft, _freqs; gc.collect()
 
