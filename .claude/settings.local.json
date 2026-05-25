@@ -77,7 +77,20 @@
       "Bash(adb -s AE6RUT4531003110 pull /sdcard/screen_check.png C:/Users/equat/Downloads/screen_check.png)",
       "Bash(adb -s AE6RUT4531003110 shell \"screencap -p > /sdcard/screen_check.png\")",
       "Bash(adb -s AE6RUT4531003110 exec-out screencap -p)",
-      "Bash(adb -s AE6RUT4531003110 shell am start -n app.revanced.manager.flutter/app.revanced.manager.MainActivity)"
+      "Bash(adb -s AE6RUT4531003110 shell am start -n app.revanced.manager.flutter/app.revanced.manager.MainActivity)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 612 1333)",
+      "Bash(adb -s AE6RUT4531003110 shell input keyevent KEYCODE_BACK)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 612 1100)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 600 2600)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 1000 2580)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 400 2486)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 1100 420)",
+      "Bash(adb -s AE6RUT4531003110 shell input swipe 612 2000 612 800 500)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 400 1100)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 300 850)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 612 2200)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 45 117)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 405 2363)"
     ]
   },
   "enableAllProjectMcpServers": true,

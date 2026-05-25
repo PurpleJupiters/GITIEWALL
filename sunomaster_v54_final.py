@@ -1894,12 +1894,12 @@ def main():
                 vL_ext = librosa.resample(vL_ext.astype(np.float64), orig_sr=vsr, target_sr=SR).astype(np.float32)
                 vR_ext = librosa.resample(vR_ext.astype(np.float64), orig_sr=vsr, target_sr=SR).astype(np.float32)
 
-            # ── Vocal envelope leveler (fix Audimee frame-level stuttering) ──
+            # ── Stutter limiter (fix Audimee frame-level level spikes) ─────
             # Audimee voice conversion on Demucs-separated stems produces
             # severe frame-level level discontinuities (174 jumps >15dB in 275s).
-            # This is caused by the imperfect Demucs vocal being noisy input.
-            # Fix: smooth the gain envelope so no 100ms block differs by >6dB
-            # from its neighbours — kills the stutter without crushing dynamics.
+            # Strategy: DOWNWARD ONLY — reduce frames that are louder than their
+            # smoothed neighbourhood, never boost quiet frames (boosting amplifies
+            # noise in silent sections and shifts the spectral centroid upward).
             from scipy.ndimage import uniform_filter1d as _ufi1d
             _lev_hop  = max(1, int(SR * 0.040))   # 40ms analysis blocks
             _lev_mono = ((vL_ext.astype(np.float64) + vR_ext.astype(np.float64)) * 0.5)
@@ -1907,27 +1907,29 @@ def main():
             _rms_lev  = np.array([float(np.sqrt(np.mean(
                             _lev_mono[i*_lev_hop:(i+1)*_lev_hop]**2) + 1e-24))
                          for i in range(_n_lev)], dtype=np.float64)
-            # Smooth envelope: 600ms window → remove frame-level jumps
-            _smooth_n = max(3, int(600 / 40))     # 600ms / 40ms = 15 blocks
+            # Smooth envelope: 600ms window → the "expected" level at each block
+            _smooth_n = max(3, int(600 / 40))     # 15 blocks @ 40ms = 600ms
             _rms_sm   = _ufi1d(np.maximum(_rms_lev, 1e-12), size=_smooth_n, mode='nearest')
-            # Target: normalise to the smoothed envelope (ride the level, not kill it)
-            _floor    = max(float(np.percentile(_rms_lev[_rms_lev > 1e-10], 10)),
-                            10**(-45.0/20))        # noise floor guard
-            _gain_lev = np.clip(_rms_sm / np.maximum(_rms_lev, _floor),
-                                10**(-12.0/20), 10**(12.0/20))  # ±12dB clamp
-            # Where signal is near-silence, don't amplify (gate at -50dBFS)
-            _gate_mask = _rms_lev < 10**(-50.0/20)
-            _gain_lev[_gate_mask] = 1.0
+            # Gain = smooth / actual, clamped to [0, 1] — only reduction, no boost
+            _gain_lev = np.minimum(1.0, _rms_sm / np.maximum(_rms_lev, 1e-12))
+            _gain_lev = np.maximum(_gain_lev, 10**(-20.0/20))  # max -20dB cut
             # Upsample to sample-level with linear interp for smooth transitions
             _blk_ctrs = (np.arange(_n_lev) + 0.5) * _lev_hop
-            _samp_idx = np.arange(len(vL_ext), dtype=np.float64)
-            _gain_full = np.interp(_samp_idx, _blk_ctrs, _gain_lev).astype(np.float32)
-            n_corrected = int(np.sum(np.abs(20*np.log10(_gain_lev+1e-12)) > 1.0))
+            _gain_full = np.interp(np.arange(len(vL_ext), dtype=np.float64),
+                                   _blk_ctrs, _gain_lev).astype(np.float32)
+            n_limited = int(np.sum(_gain_lev < 0.99))
             vL_ext = (vL_ext * _gain_full).astype(np.float32)
             vR_ext = (vR_ext * _gain_full).astype(np.float32)
-            print(f"  [VOCAL INJECT] Envelope leveler: {n_corrected}/{_n_lev} blocks adjusted (stutter fix)")
-            del _lev_mono, _rms_lev, _rms_sm, _gain_lev, _gain_full, _blk_ctrs, _samp_idx, _ufi1d
+            print(f"  [VOCAL INJECT] Stutter limiter: {n_limited}/{_n_lev} loud frames reduced")
+            del _lev_mono, _rms_lev, _rms_sm, _gain_lev, _gain_full, _blk_ctrs, _ufi1d
             gc.collect()
+            # Hard peak safety before vocal chain: clamp to -2dBFS
+            _peak_pre = max(float(np.max(np.abs(vL_ext))), float(np.max(np.abs(vR_ext))))
+            if _peak_pre > 10**(-2.0/20):
+                _sc_pre = float(10**(-2.0/20) / _peak_pre)
+                vL_ext = (vL_ext * _sc_pre).astype(np.float32)
+                vR_ext = (vR_ext * _sc_pre).astype(np.float32)
+                print(f"  [VOCAL INJECT] Peak clamp: {20*np.log10(_peak_pre):.1f}dBFS -> -2.0dBFS")
 
             # ── Spectral centroid diagnostic ────────────────────────────────
             _mono_v = ((vL_ext + vR_ext) * 0.5).astype(np.float64)
