@@ -65,7 +65,9 @@
       "Bash(Select-Object Id, MainWindowTitle)",
       "PowerShell(Get-Item \"C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\" -ErrorAction SilentlyContinue; Get-Item \"C:\\\\Program Files\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\" -ErrorAction SilentlyContinue; \\(Get-Command msedge -ErrorAction SilentlyContinue\\).Source)",
       "Read(//mnt/e/SunoMaster/**)",
-      "Bash(echo \"Script launched in background, PID: $!\")"
+      "Bash(echo \"Script launched in background, PID: $!\")",
+      "PowerShell(Add-Type -AssemblyName UIAutomationClient; $chrome = Get-Process chrome | Where-Object {$_.MainWindowTitle -ne \"\"} | Select-Object MainWindowTitle; $chrome)",
+      "PowerShell(python -u \"E:\\\\SunoMaster\\\\scripts\\\\test_playwright.py\" > \"E:\\\\SunoMaster\\\\scripts\\\\playwright_log.txt\" 2>&1; Get-Content \"E:\\\\SunoMaster\\\\scripts\\\\playwright_log.txt\")"
     ]
   },
   "enableAllProjectMcpServers": true,
