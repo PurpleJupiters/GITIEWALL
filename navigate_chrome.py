@@ -3,52 +3,51 @@ import time
 import ctypes
 from ctypes import wintypes
 
+pyautogui.FAILSAFE = False
+
 user32 = ctypes.windll.user32
 
-# Find Chrome window by PID
+# Find Chrome window
 hwnd = None
-target_pid = 30324
 
 def enum_cb(h, l):
     global hwnd
-    pid = wintypes.DWORD()
-    user32.GetWindowThreadProcessId(h, ctypes.byref(pid))
-    if pid.value == target_pid:
-        title_len = user32.GetWindowTextLengthW(h)
-        if title_len > 0:
+    buf = ctypes.create_unicode_buffer(512)
+    user32.GetWindowTextW(h, buf, 512)
+    if "Chrome" in buf.value or "RepostExchange" in buf.value or "Google" in buf.value:
+        if user32.IsWindowVisible(h):
             hwnd = h
     return True
 
 WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
 user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
-
-# If PID-specific search failed, try finding any Chrome window
-if not hwnd:
-    def find_chrome(h, l):
-        global hwnd
-        buf = ctypes.create_unicode_buffer(256)
-        user32.GetWindowTextW(h, buf, 256)
-        if "Chrome" in buf.value or "Google" in buf.value:
-            hwnd = h
-        return True
-    user32.EnumWindows(WNDENUMPROC(find_chrome), 0)
-
 print(f"Chrome HWND: {hwnd}", flush=True)
 
-if hwnd:
-    user32.ShowWindow(hwnd, 9)
-    user32.SetForegroundWindow(hwnd)
-    time.sleep(1.5)
+def force_focus(target_hwnd):
+    fg_hwnd = user32.GetForegroundWindow()
+    fg_tid = user32.GetWindowThreadProcessId(fg_hwnd, None)
+    tgt_tid = user32.GetWindowThreadProcessId(target_hwnd, None)
+    user32.AttachThreadInput(fg_tid, tgt_tid, True)
+    user32.ShowWindow(target_hwnd, 9)   # SW_RESTORE
+    user32.BringWindowToTop(target_hwnd)
+    user32.SetForegroundWindow(target_hwnd)
+    time.sleep(0.5)
+    user32.AttachThreadInput(fg_tid, tgt_tid, False)
 
-# Use Ctrl+L to focus address bar
-pyautogui.hotkey('ctrl', 'l')
-time.sleep(0.6)
-pyautogui.hotkey('ctrl', 'a')
-time.sleep(0.3)
-pyautogui.write('https://account.microsoft.com/security', interval=0.04)
-pyautogui.press('enter')
-print("Navigating...", flush=True)
-time.sleep(7)
+if hwnd:
+    force_focus(hwnd)
+    time.sleep(1)
+
+    # Click address bar (Ctrl+L)
+    pyautogui.hotkey('ctrl', 'l')
+    time.sleep(0.5)
+    pyautogui.hotkey('ctrl', 'a')
+    time.sleep(0.3)
+    pyautogui.write('https://account.microsoft.com/security', interval=0.05)
+    time.sleep(0.3)
+    pyautogui.press('enter')
+    print("URL typed and Enter pressed", flush=True)
+    time.sleep(7)
 
 # Screenshot
 import subprocess
@@ -62,4 +61,4 @@ subprocess.run([
     '$b.Save("E:\\SunoMaster\\scripts\\screen7.png"); '
     '$g.Dispose(); $b.Dispose()'
 ])
-print("Screenshot saved as screen7.png", flush=True)
+print("Screenshot saved.", flush=True)
