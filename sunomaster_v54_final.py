@@ -1539,13 +1539,21 @@ def generate_melody_midi(vocal_L, vocal_R, bpm, sr=SR, path=None):
     Audimee (or a human vocalist) can use this as a melody guide.
     """
     mono = ((vocal_L.astype(np.float64) + vocal_R.astype(np.float64)) * 0.5).astype(np.float32)
+    # Downsample to 22050 Hz before pyin — halves array size, ~4× faster pitch detection.
+    # pyin accuracy is unchanged for vocal frequencies (C2=65Hz to C6=1047Hz).
+    pyin_sr = 22050
+    if sr != pyin_sr:
+        mono_pyin = librosa.resample(mono.astype(np.float64), orig_sr=sr, target_sr=pyin_sr).astype(np.float32)
+    else:
+        mono_pyin = mono
     try:
         f0, voiced, _ = librosa.pyin(
-            mono, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C6'),
-            sr=sr, hop_length=512)
+            mono_pyin, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C6'),
+            sr=pyin_sr, hop_length=256)
     except Exception as ex:
         print(f"    [GUIDE] MIDI pitch detection failed: {ex}"); return
-    hop_s = 512.0 / sr
+    # hop_s in terms of the ORIGINAL sr so note timestamps stay accurate
+    hop_s = 256.0 / pyin_sr
     notes = []; i = 0
     while i < len(f0):
         if voiced[i] and f0[i] is not None and not np.isnan(f0[i]):
@@ -1952,6 +1960,26 @@ def main():
             # Soothe would also require ~1 GB RAM on top of what we freed.
             vL_ext, vR_ext = process_ai_vocals(vL_ext, vR_ext, SR, skip_soothe=True)
 
+            # ── Level-match injected vocal to Demucs vocal RMS ─────────────
+            # Audimee/Hailey vocal is typically 10-15 dB quieter than the
+            # Demucs vocal stem after processing, causing P2 mix to be very
+            # quiet and requiring a dangerously large P3 makeup gain (>12 dB).
+            # Fix: scale the injected vocal so its RMS matches the reference.
+            if 'vocals' in processed:
+                ref_vL_r, ref_vR_r = processed['vocals']
+                ref_rms = float(np.sqrt(np.mean(ref_vL_r.astype(np.float64)**2 +
+                                                ref_vR_r.astype(np.float64)**2)))
+                inj_rms = float(np.sqrt(np.mean(vL_ext.astype(np.float64)**2 +
+                                                vR_ext.astype(np.float64)**2)))
+                if inj_rms > 1e-6 and ref_rms > 1e-6:
+                    level_gain = float(np.clip(ref_rms / inj_rms, 0.126, 7.943))  # ±18 dB clamp
+                    vL_ext = (vL_ext * level_gain).astype(np.float32)
+                    vR_ext = (vR_ext * level_gain).astype(np.float32)
+                    print(f"  [VOCAL INJECT] Level match: {20*np.log10(level_gain):.1f}dB "
+                          f"(ref={20*np.log10(ref_rms+1e-12):.1f}dBFS  "
+                          f"inj={20*np.log10(inj_rms+1e-12):.1f}dBFS)")
+                del ref_vL_r, ref_vR_r; gc.collect()
+
             # ── Restore non-vocal stems and replace vocals ──────────────────
             processed.update(_stems_backup)
             del _stems_backup; gc.collect()
@@ -2054,11 +2082,25 @@ def main():
         except Exception as e:
             print(f"  [VOCALS EXPORT] Failed: {e}")
 
+    # ── DESKTOP DELIVERY ─────────────────────────────────────────────────────────
+    # Copy the final master to the desktop folder BEFORE guide file generation
+    # so the file is immediately available without waiting for librosa.pyin MIDI.
+    desktop_folder = Path.home() / "Desktop" / "MUSIC OUTPUT" / "Latest Mastered Songs"
+    try:
+        desktop_folder.mkdir(parents=True, exist_ok=True)
+        dest = desktop_folder / f"{name}_master_v5.4.wav"
+        replaced = dest.exists()   # check BEFORE overwriting
+        shutil.copy2(str(master_path), str(dest))
+        action = "Replaced older version" if replaced else "Saved new file"
+        print(f"  [DESKTOP] {action}: {dest}")
+    except Exception as e:
+        print(f"  [DESKTOP] Copy failed: {e}")
+
     # ── GUIDE FILE GENERATION ────────────────────────────────────────────────────
     # Produces click, kick pulse, vocal envelope, and MIDI for Audimee vocal resynthesis.
     # Guide files land in AUDIMEE VOCAL DOWNLOADS so they're ready to upload.
+    # NOTE: This runs AFTER Desktop delivery — MIDI (librosa.pyin) can take 2-5 min.
     try:
-        desktop_folder = Path.home() / "Desktop" / "MUSIC OUTPUT" / "Latest Mastered Songs"
         audimee_folder = desktop_folder / "AUDIMEE VOCAL DOWNLOADS"
         audimee_folder.mkdir(parents=True, exist_ok=True)
         song_duration_s = len(orig_L_48) / SR
@@ -2076,20 +2118,6 @@ def main():
         del _guide_drums_L, _guide_drums_R, _guide_vocal_L, _guide_vocal_R; gc.collect()
     except Exception as e_guide:
         print(f"  [GUIDE FILES] Failed: {e_guide}")
-
-    # ── DESKTOP DELIVERY ─────────────────────────────────────────────────────────
-    # Copy the final master to the desktop folder using the original song filename.
-    # Overwrites any older version of the same song automatically.
-    desktop_folder = Path.home() / "Desktop" / "MUSIC OUTPUT" / "Latest Mastered Songs"
-    try:
-        desktop_folder.mkdir(parents=True, exist_ok=True)
-        dest = desktop_folder / f"{name}_master_v5.4.wav"
-        replaced = dest.exists()   # check BEFORE overwriting
-        shutil.copy2(str(master_path), str(dest))
-        action = "Replaced older version" if replaced else "Saved new file"
-        print(f"  [DESKTOP] {action}: {dest}")
-    except Exception as e:
-        print(f"  [DESKTOP] Copy failed: {e}")
 
 
 # ─── SELF-CORRECTION FUNCTION (defined after main body so it reads top-to-bottom) ─
