@@ -60,7 +60,12 @@
       "Bash(Start-Process \"https://account.microsoft.com/security\")",
       "Bash(Start-Process \"2FAGuard\")",
       "PowerShell(Start-Process \"https://account.microsoft.com/security\")",
-      "PowerShell(Start-Process \"2FAGuard\")"
+      "PowerShell(Start-Process \"2FAGuard\")",
+      "Bash(Get-Process chrome *)",
+      "Bash(Select-Object Id, MainWindowTitle)",
+      "PowerShell(Get-Item \"C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\" -ErrorAction SilentlyContinue; Get-Item \"C:\\\\Program Files\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\" -ErrorAction SilentlyContinue; \\(Get-Command msedge -ErrorAction SilentlyContinue\\).Source)",
+      "Read(//mnt/e/SunoMaster/**)",
+      "Bash(echo \"Script launched in background, PID: $!\")"
     ]
   },
   "enableAllProjectMcpServers": true,
