@@ -90,7 +90,12 @@
       "Bash(adb -s AE6RUT4531003110 shell input tap 300 850)",
       "Bash(adb -s AE6RUT4531003110 shell input tap 612 2200)",
       "Bash(adb -s AE6RUT4531003110 shell input tap 45 117)",
-      "Bash(adb -s AE6RUT4531003110 shell input tap 405 2363)"
+      "Bash(adb -s AE6RUT4531003110 shell input tap 405 2363)",
+      "Bash(adb -s AE6RUT4531003110 shell input swipe 612 2400 612 1000 400)",
+      "Bash(adb -s AE6RUT4531003110 shell cp \"/data/app/~~IM8LXEbBfukRkXDSA3jv-Q==/com.google.android.apps.youtube.music-JApPvtbs3tQWXROxDa4F_A==/base.apk\" /sdcard/Download/ytmusic.apk)",
+      "Bash(adb -s AE6RUT4531003110 shell am force-stop app.revanced.manager.flutter)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 608 918)",
+      "Bash(adb -s AE6RUT4531003110 shell input tap 608 1248)"
     ]
   },
   "enableAllProjectMcpServers": true,
