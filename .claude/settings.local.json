@@ -71,7 +71,8 @@
       "PowerShell(Get-Process chrome | Where-Object {$_.MainWindowTitle -ne \"\"} | Select-Object MainWindowTitle, Id)",
       "PowerShell(robocopy \"C:\\\\Users\\\\equat\\\\AppData\\\\Local\\\\Google\\\\Chrome\\\\User Data\\\\Default\\\\Network\" \"C:\\\\Temp\\\\cookiescopy\" \"Cookies\" /b /r:0 /w:0 2>&1; echo \"Exit: $LASTEXITCODE\")",
       "Bash(powershell -Command \"Get-Content 'E:\\\\SunoMaster\\\\logs\\\\hailey_remaster.log' -Wait | Select-String --line-buffered 'COMPLETE|OPTIMAL|Pipeline exited|ERROR|Traceback|P3 output|Level match|SV-02|makeup gain'\")",
-      "Bash(adb -s AE6RUT4531003110 shell pm dump app.revanced.manager.flutter)"
+      "Bash(adb -s AE6RUT4531003110 shell pm dump app.revanced.manager.flutter)",
+      "mcp__Claude_in_Chrome__browser_batch"
     ]
   },
   "enableAllProjectMcpServers": true,
