@@ -1,0 +1,105 @@
+PHONE HOME SCREEN HIERARCHY — Honor Phone
+Captured: 2026-05-25
+================================================================================
+
+ROW 1:
+  [Folder] Microsoft Office
+      - Word
+      - Excel
+      - PowerPoint
+      - Publisher
+  [Folder] Misc
+      - Replit
+      - Profile app
+      - Info app
+      - Yellow app
+  [App] Calendar (standalone)
+  [App] Pink wheel app (standalone)
+
+ROW 2:
+  [Folder] Social
+      - Reddit
+      - Discord
+      - Zoom
+  [Folder] Messaging
+      - Telegram
+      - WhatsApp
+      - Threads
+      - Facebook
+      - Instagram
+      - Signal
+      - Viber
+  [Folder] Google  [badge: 14]
+      - Gmail
+      - YouTube
+      - Drive
+      - Maps
+      - Photos
+  [Folder] Creative
+      - CapCut
+      - Canva
+      - Lightroom
+      - Adobe Express
+
+ROW 3:
+  [Folder] Utilities
+      - QR scanner
+      - Barcode app
+      - Blue app
+  [Folder] Lifestyle
+  [Folder] PDF
+      - PDF Reader
+      - Acrobat
+  [Folder] Browser
+      - Firefox
+      - Edge
+
+ROW 4:
+  [Folder] Music
+      - SoundCloud
+      - Spotify
+      - Shazam
+      - TIDAL
+  [Folder] Entertainment
+      - Netflix+
+  [Folder] Social Media
+      - TikTok
+      - X (Twitter)
+      - LinkedIn
+  [Folder] Tech / Dev / AI
+      - Terminal
+      - GitHub
+      - AI apps
+
+ROW 5:
+  [Folder] Shopping / Travel
+      - Booking
+      - Amazon
+      - Lidl
+      - eBay
+      - Tripadvisor
+  [Folder] Finance
+      - Klarna
+      - Vinted
+      - iRobot
+      - MijnKPN
+  [Folder] Small (2 apps)
+  [Folder] Small (2 apps)
+
+ROW 6:
+  [Folder] Small (2 apps)
+  [Folder] Learning
+      - Coursera
+      - Udemy
+      - (others)
+  [Folder] Productivity / Notes
+      - Notion
+      - Obsidian
+  [Folder] Music Production
+      - Suno
+      - Fiverr
+
+DOCK:
+  Phone | Messages | Chrome | TIDAL
+
+================================================================================
