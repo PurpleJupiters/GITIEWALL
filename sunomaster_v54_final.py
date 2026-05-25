@@ -1375,7 +1375,7 @@ def vocal_humanize(L, R, sr=SR, depth=0.03, rate_hz=0.25):
     return Lh, Rh
 
 
-def process_ai_vocals(L, R, sr=SR):
+def process_ai_vocals(L, R, sr=SR, skip_soothe=False):
     """
     Full AI vocal processing chain — applied only to the vocals stem.
 
@@ -1383,7 +1383,9 @@ def process_ai_vocals(L, R, sr=SR):
       1. Despike       — remove Demucs amplitude spikes (sliding-RMS gate)
       2. Compress      — tame crest from 22dB to 12-18dB (optical 3:1)
       3. Glitch gate   — remove extreme AI synthesis artifacts in 2-8kHz
-      4. Soothe        — spectral resonance suppressor (frame-by-frame median)
+      4. Soothe        — spectral resonance suppressor (vectorized median, ~50x faster)
+                         Skipped when skip_soothe=True (e.g. Audimee vocal already
+                         had tilt correction applied — saves ~1 GB RAM)
       5. De-esser      — adaptive 4-14kHz (wider than v5.3, catches harsh AI sibilance)
       6. Transient smooth — soften unnaturally sharp AI vocal onsets
       7. Humanize      — 3-band harmonic modulation (reduces AI-static signature)
@@ -1391,27 +1393,34 @@ def process_ai_vocals(L, R, sr=SR):
 
     Every step: conservative, transparent, DO NO HARM.
     """
-    print(f"    [vocals] AI vocal chain: despike + compress + gate + soothe + deess + smooth + humanize + width")
-    # 1. Despike (amplitude spike removal)
+    chain = "despike+compress+gate+deess+smooth+humanize+width" if skip_soothe \
+            else "despike+compress+gate+soothe+deess+smooth+humanize+width"
+    print(f"    [vocals] AI vocal chain: {chain}")
+    # 1. Despike
     L, R = vocal_despike(L, R, sr)
-    # 2. Compress (crest factor reduction)
+    # 2. Compress
     L, R = vocal_compress(L, R, sr)
     # 3. Glitch gate
     L, R = remove_ai_glitch_artifacts(L, R, sr)
-    # 4. Spectral resonance suppressor (Soothe equivalent) — applied to Mid only
-    Lm = ((L + R) * 0.5).astype(np.float32)
-    Sm = ((L - R) * 0.5).astype(np.float32)
-    Lm_s = spectral_resonance_suppress(Lm, sr, sensitivity=0.55, depth_max_db=7.0)
-    L = (Lm_s + Sm).astype(np.float32)
-    R = (Lm_s - Sm).astype(np.float32)
-    # 5. Adaptive de-esser (4-14kHz — wider window catches more AI sibilance)
+    gc.collect()
+    # 4. Spectral resonance suppressor — skip if tilt correction already applied
+    if not skip_soothe:
+        Lm = ((L + R) * 0.5).astype(np.float32)
+        Sm = ((L - R) * 0.5).astype(np.float32)
+        Lm_s = spectral_resonance_suppress(Lm, sr, sensitivity=0.55, depth_max_db=7.0)
+        del Lm; gc.collect()
+        L = (Lm_s + Sm).astype(np.float32)
+        R = (Lm_s - Sm).astype(np.float32)
+        del Lm_s, Sm; gc.collect()
+    # 5. Adaptive de-esser (4-14kHz)
     L, R = adaptive_deesser(L, R, sr=sr, freq_lo=4000, freq_hi=14000,
                              margin_db=5.0, ratio=3.0)
+    gc.collect()
     # 6. Transient smoothing
     L, R = transient_shape_vocal(L, R, sr)
-    # 7. Humanize (harmonic modulation)
+    # 7. Humanize
     L, R = vocal_humanize(L, R, sr)
-    # 8. Width control (near-mono)
+    # 8. Width control
     L, R = vocal_width_control(L, R, sr)
     return L, R
 
@@ -1909,9 +1918,25 @@ def main():
                 vL_ext, vR_ext, off_ms, score = auto_align_vocal(vL_ext, vR_ext, ref_vL, ref_vR, SR)
                 print(f"  [ALIGN] Offset={off_ms:.1f}ms  Score={score:.2f}" +
                       ("  [OK]" if score >= 0.3 else "  [WARN: low correlation — may be out of sync]"))
+                del ref_vL, ref_vR; gc.collect()
 
-            # ── Apply full P1 vocal chain to the corrected Audimee vocal ───
-            vL_ext, vR_ext = process_ai_vocals(vL_ext, vR_ext, SR)
+            # ── Free non-vocal stems before heavy processing to save RAM ───
+            # The Soothe STFT needs ~1 GB working space. Free what we don't need yet.
+            _stems_backup = {k: v for k, v in processed.items() if k != 'vocals'}
+            for k in list(_stems_backup.keys()):
+                del processed[k]
+            gc.collect()
+            print(f"  [VOCAL INJECT] Freed non-vocal stems to save RAM for processing")
+
+            # ── Apply vocal chain (skip Soothe — tilt correction already applied) ──
+            # Soothe is skipped here because the -7dB high-shelf + +3dB low-shelf
+            # tilt correction above already handled the Audimee brightness issue.
+            # Soothe would also require ~1 GB RAM on top of what we freed.
+            vL_ext, vR_ext = process_ai_vocals(vL_ext, vR_ext, SR, skip_soothe=True)
+
+            # ── Restore non-vocal stems and replace vocals ──────────────────
+            processed.update(_stems_backup)
+            del _stems_backup; gc.collect()
             processed['vocals'] = (vL_ext, vR_ext)
             print(f"  [VOCAL INJECT] Demucs vocal replaced with Audimee/Hailey vocal")
         else:
