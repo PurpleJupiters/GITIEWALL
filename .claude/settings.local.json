@@ -68,7 +68,8 @@
       "Bash(echo \"Script launched in background, PID: $!\")",
       "PowerShell(Add-Type -AssemblyName UIAutomationClient; $chrome = Get-Process chrome | Where-Object {$_.MainWindowTitle -ne \"\"} | Select-Object MainWindowTitle; $chrome)",
       "PowerShell(python -u \"E:\\\\SunoMaster\\\\scripts\\\\test_playwright.py\" > \"E:\\\\SunoMaster\\\\scripts\\\\playwright_log.txt\" 2>&1; Get-Content \"E:\\\\SunoMaster\\\\scripts\\\\playwright_log.txt\")",
-      "PowerShell(Get-Process chrome | Where-Object {$_.MainWindowTitle -ne \"\"} | Select-Object MainWindowTitle, Id)"
+      "PowerShell(Get-Process chrome | Where-Object {$_.MainWindowTitle -ne \"\"} | Select-Object MainWindowTitle, Id)",
+      "PowerShell(robocopy \"C:\\\\Users\\\\equat\\\\AppData\\\\Local\\\\Google\\\\Chrome\\\\User Data\\\\Default\\\\Network\" \"C:\\\\Temp\\\\cookiescopy\" \"Cookies\" /b /r:0 /w:0 2>&1; echo \"Exit: $LASTEXITCODE\")"
     ]
   },
   "enableAllProjectMcpServers": true,

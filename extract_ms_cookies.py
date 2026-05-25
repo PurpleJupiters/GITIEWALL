@@ -18,8 +18,8 @@ encrypted_key = base64.b64decode(key_b64)[5:]          # strip "DPAPI" prefix
 aes_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
 print(f"AES key length: {len(aes_key)}", flush=True)
 
-# 2. Copy cookies DB (Chrome locks it)
-shutil.copy2(COOKIES_DB, TMP_COOKIES)
+# 2. Use already-copied cookies DB
+# (copied before Chrome restarted)
 
 # 3. Decrypt cookies for Microsoft domains
 conn = sqlite3.connect(TMP_COOKIES)
