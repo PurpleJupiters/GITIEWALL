@@ -1627,39 +1627,57 @@ def auto_align_vocal(new_L, new_R, ref_L, ref_R, sr=SR, max_offset_s=5.0):
     reference Demucs vocal stem using amplitude-envelope cross-correlation.
 
     Steps:
-      1. Compute 100 ms RMS envelopes of both signals
-      2. Cross-correlate within ±max_offset_s window
-      3. Find the lag with peak absolute correlation
-      4. Shift the new vocal by that offset
-      5. Report quality score (0-1; >0.5 = good alignment)
+      1. Compute RMS envelopes at ~10 Hz (100ms resolution) — O(n) via uniform_filter1d
+      2. Downsample envelopes so cross-correlation is on ~2750 pts, not 13M
+      3. Cross-correlate with scipy FFT method — fast on short arrays
+      4. Convert best lag back to samples at original SR
+      5. Shift the new vocal by that offset
 
     Returns: (aligned_L, aligned_R, offset_ms, score)
     """
-    def _env(L, R):
+    from scipy.ndimage import uniform_filter1d
+    from scipy.signal import correlate as sp_correlate
+
+    # 100ms decimation factor — gives 10 Hz envelope resolution
+    dec = max(1, int(sr * 0.100))
+
+    def _env_decimated(L, R):
         mono = ((L.astype(np.float64) + R.astype(np.float64)) * 0.5)
-        win  = max(1, int(sr * 0.100))
-        return np.sqrt(np.maximum(np.convolve(mono**2, np.ones(win)/win, mode='same'), 0.0))
+        # O(n) uniform RMS — far faster than np.convolve
+        rms2 = uniform_filter1d(mono ** 2, size=dec, mode='nearest')
+        env_full = np.sqrt(np.maximum(rms2, 0.0))
+        return env_full[::dec].astype(np.float32)   # decimate to ~10 Hz
 
-    env_new = _env(new_L, new_R)
-    env_ref = _env(ref_L, ref_R)
+    env_new = _env_decimated(new_L, new_R)
+    env_ref = _env_decimated(ref_L, ref_R)
     N = min(len(env_new), len(env_ref))
-    a = env_new[:N]; b = env_ref[:N]
-    max_lag = min(int(max_offset_s * sr), N // 4)
+    a = env_new[:N].astype(np.float64)
+    b = env_ref[:N].astype(np.float64)
 
-    corr   = np.correlate(a - a.mean(), b - b.mean(), mode='full')
+    # Max lag in decimated domain (±5 s at 10 Hz = ±50 samples)
+    max_lag_dec = min(int(max_offset_s * sr / dec), N // 4)
+
+    # FFT-based cross-correlation on the short decimated arrays
+    corr   = sp_correlate(a - a.mean(), b - b.mean(), mode='full', method='fft')
     center = len(corr) // 2
-    window = corr[center - max_lag : center + max_lag + 1]
-    best_lag = int(np.argmax(np.abs(window))) - max_lag
-    offset_ms = best_lag / sr * 1000.0
-    norm  = float(np.std(a) * np.std(b) * N)
-    score = float(np.clip(corr[center + best_lag] / norm, 0.0, 1.0)) if norm > 1e-10 else 0.0
+    win    = corr[center - max_lag_dec : center + max_lag_dec + 1]
+    best_lag_dec = int(np.argmax(np.abs(win))) - max_lag_dec
 
+    # Convert back to full-rate samples
+    best_lag  = best_lag_dec * dec
+    offset_ms = best_lag / sr * 1000.0
+
+    norm  = float(np.std(a) * np.std(b) * N)
+    score = float(np.clip(corr[center + best_lag_dec] / norm, 0.0, 1.0)) \
+            if norm > 1e-10 else 0.0
+
+    # Shift the full-rate signal by best_lag samples
     pad0 = np.zeros(abs(best_lag), dtype=np.float32)
     if best_lag > 0:
         aL = np.concatenate([pad0, new_L])[:len(ref_L)]
         aR = np.concatenate([pad0, new_R])[:len(ref_R)]
     elif best_lag < 0:
-        trim = abs(best_lag)
+        trim  = abs(best_lag)
         pad_n = max(0, len(ref_L) - (len(new_L) - trim))
         aL = np.concatenate([new_L[trim:], np.zeros(pad_n, np.float32)])[:len(ref_L)]
         aR = np.concatenate([new_R[trim:], np.zeros(pad_n, np.float32)])[:len(ref_R)]
